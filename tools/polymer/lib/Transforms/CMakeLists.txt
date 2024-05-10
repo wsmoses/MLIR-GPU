@@ -1,4 +1,5 @@
 add_mlir_conversion_library(PolymerTransforms
+  BullsEyeAnalysis.cc
   PlutoTransform.cc
   Reg2Mem.cc
   ExtractScopStmt.cc

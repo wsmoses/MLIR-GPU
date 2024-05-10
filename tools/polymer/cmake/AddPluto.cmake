@@ -1,4 +1,3 @@
-
 # execute_process(
 #   COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/../build_pluto.sh" "${POLYGEIST_PLUTO_DIR}"
 # )
@@ -20,6 +19,8 @@ add_library(libplutocloog SHARED IMPORTED)
 set_target_properties(libplutocloog PROPERTIES IMPORTED_LOCATION "${PLUTO_LIB_DIR}/libcloog-isl.so")
 add_library(libplutocandl STATIC IMPORTED)
 set_target_properties(libplutocandl PROPERTIES IMPORTED_LOCATION "${PLUTO_LIB_DIR}/libcandl.so")
+add_library(libplutopet SHARED IMPORTED)
+set_target_properties(libplutopet PROPERTIES IMPORTED_LOCATION "${PLUTO_LIB_DIR}/libpet.so")
 
 add_dependencies(libpluto pluto)
 add_dependencies(libplutoisl pluto)
@@ -27,4 +28,5 @@ add_dependencies(libplutoosl pluto)
 add_dependencies(libplutopip pluto)
 add_dependencies(libplutopolylib pluto)
 add_dependencies(libplutocloog pluto)
+add_dependencies(libplutopet pluto)
 add_dependencies(libplutocandl pluto)

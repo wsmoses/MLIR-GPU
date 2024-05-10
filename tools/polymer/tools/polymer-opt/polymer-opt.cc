@@ -13,6 +13,7 @@
 #include "polymer/Transforms/PlutoTransform.h"
 #include "polymer/Transforms/Reg2Mem.h"
 #include "polymer/Transforms/ScopStmtOpt.h"
+#include "polymer/Transforms/BullsEyeAnalysis.h"
 
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Affine/Passes.h"
@@ -58,6 +59,7 @@ int main(int argc, char *argv[]) {
   affine::registerAffineScalarReplacementPass();
   // Register polymer specific passes.
   registerPlutoTransformPass();
+  registerBullsEyeAnalysisPass();
   registerRegToMemPass();
   registerExtractScopStmtPass();
   registerScopStmtOptPasses();
