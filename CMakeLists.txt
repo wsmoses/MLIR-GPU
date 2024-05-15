@@ -9,13 +9,20 @@ set(POLYGEIST_ENABLE_POLYMER 0 CACHE BOOL "Enable Polymer")
 
 set(POLYMER_DEP_DIR "" CACHE STRING "Pluto build root directory")
 
+set(CPLEX_HOME_DIR "" CACHE STRING "Cplex Home dir absolute path")
+
 if ("${POLYMER_DEP_DIR}" STREQUAL "")
     set(POLYGEIST_PLUTO_DIR ${CMAKE_CURRENT_BINARY_DIR})
 else()
     set(POLYGEIST_PLUTO_DIR ${POLYMER_DEP_DIR})
 endif()
-  
-message(STATUS "polygeist_pluto_dir '${POLYGEIST_PLUTO_DIR}'")
+
+if("$CPLEX_HOME_DIR" STREQUAL "")
+    message(FATAL_ERROR "CPLEX_HOME is mandatory. Specify the path using -DCPLEX_HOME=path_to_cplex")
+endif()
+
+
+message(STATUS "polygeist_pluto_bullseye_dir '${POLYGEIST_PLUTO_DIR}'")
 
 if(POLICY CMP0068)
   cmake_policy(SET CMP0068 NEW)

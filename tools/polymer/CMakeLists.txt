@@ -24,15 +24,20 @@ set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
 # Find whether the GMP package exists.
 find_package(GMP REQUIRED)
 
-# build pluto, openscop, cloog
+# build pluto, openscop, cloog, bullseye
 execute_process(
-  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/build_polymer_deps.sh" "${POLYGEIST_PLUTO_DIR}"
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/build_polymer_deps_with_bullseye.sh" "${POLYGEIST_PLUTO_DIR}" "${CPLEX_HOME_DIR}"
   COMMAND_ERROR_IS_FATAL ANY
 )
 # configure the cmake variables for pluto
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AddPluto.cmake")
 include_directories("${PLUTO_INCLUDE_DIR}")
 message(STATUS "Will build and use Polymer-bundled Pluto")
+
+# configure the cmake variables for bullseye
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AddBullseye.cmake")
+include_directories("${BULLSEYE_INCLUDE_DIR}")
+message(STATUS "Will build and use Polymer-bundled Bullseye")
 
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/OpenScop.cmake")
 include_directories("${OSL_INCLUDE_DIR}")
