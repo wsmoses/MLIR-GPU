@@ -24,29 +24,32 @@ set(CMAKE_MODULE_PATH "${CMAKE_MODULE_PATH}" "${CMAKE_CURRENT_SOURCE_DIR}/cmake"
 # Find whether the GMP package exists.
 find_package(GMP REQUIRED)
 # find_package(CPLEX REQUIRED)
-# find_package(NTL REQUIRED)
+find_package(NTL REQUIRED)
 find_package(GLPK REQUIRED)
 
 # build pluto, openscop, cloog, bullseye
 execute_process(
-  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/build_polymer_deps_with_bullseye.sh" "${POLYGEIST_PLUTO_DIR}" "${CPLEX_HOME_DIR}"
+  COMMAND "${CMAKE_CURRENT_SOURCE_DIR}/build_polymer_deps_with_bullseye.sh" "${POLYGEIST_PLUTO_DIR}" "${CPLEX_HOME_DIR}" "${BULLSEYE_LLVM_INSTALL_DIR}"
   COMMAND_ERROR_IS_FATAL ANY
 )
+
+message(STATUS "Polygeist Pluto directory: ${POLYGEIST_PLUTO_DIR}")
 
 # configure the cmake variables for pluto
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AddPluto.cmake")
 include_directories("${PLUTO_INCLUDE_DIR}")
 message(STATUS "Will build and use Polymer-bundled Pluto")
 
-# configure the cmake variables for bullseye
-include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AddBullseye.cmake")
-include_directories("${BULLSEYE_INCLUDE_DIR}")
-message(STATUS "Will build and use Polymer-bundled Bullseye")
 
 # configure the cmake variables for bullseye
 include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AddCPLEX.cmake")
 include_directories("${CPLEX_INCLUDE_DIR}")
 message(STATUS "Will build and use CPLEX")
+
+# configure the cmake variables for bullseye
+include("${CMAKE_CURRENT_SOURCE_DIR}/cmake/AddBullseye.cmake")
+include_directories("${BULLSEYE_INCLUDE_DIR}")
+message(STATUS "Will build and use Polymer-bundled Bullseye")
 
 set(Boost_MIN_VERSION "1.60.0")
 

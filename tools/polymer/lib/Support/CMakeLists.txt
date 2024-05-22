@@ -16,6 +16,14 @@ add_mlir_library(PolymerSupport
   MLIRAnalysis
   MLIRAffineAnalysis
 
+  libbullseyebarvinok
+  libbullseyeisl
+  libbullseyepolylibgmp
+  libcplex
+  libconcert
+  libilocplex
+  libbullseye
+  libbullseyepet
   # libosl
    libcloog
   # libisl
@@ -24,18 +32,12 @@ add_mlir_library(PolymerSupport
   libplutopip
   libplutopolylib
   libplutocloog
-  libplutopet
+  # libplutopet
   libplutocandl
   libpluto
-  libbullseye
   ${Boost_LIBRARIES}
-  libbullseyebarvinok
-  libbullseyeisl
-  libbullseyepet
-  libbullseyepolylibgmp
-  libcplex
-  libconcert
-  libilocplex
+  
 )
 
 target_link_libraries(PolymerSupport PUBLIC ${GMP_LIBRARY} ${NTL_LIBRARY} ${GLPK_LIBRARY})
+

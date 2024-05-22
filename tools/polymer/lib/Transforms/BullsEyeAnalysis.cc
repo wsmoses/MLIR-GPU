@@ -15,6 +15,8 @@
 #include "pluto/osl_pluto.h"
 #include "pluto/pluto.h"
 
+#include "bullseye/bullseyelib.h"
+
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
 #include "mlir/Dialect/Affine/Analysis/AffineStructures.h"
@@ -41,6 +43,8 @@
 #include <isl/space.h>  
 #include <isl/vertices.h>
 #include <isl/constraint.h>
+// #include <isl/isl-noexception.h>
+#include <ostream>
 #include <pet.h>
 #include <cloog/cloog.h> 
 #include <osl/util.h>
@@ -55,10 +59,11 @@
 #include <osl/strings.h>
 #include <osl/names.h>
 #include <osl/relation.h>
-#include <osl/extensions/arrays.h>
-// #include "barvinok/barvinok.h" 
+#include <osl/extensions/arrays.h> 
 #include <fstream> 
 #include <cstdarg>
+#include <string>
+#include <vector>
 #include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
@@ -75,6 +80,36 @@ namespace std {
     }
   };
 }
+
+// isl_ctx *allocateContextWithIncludePaths(std::vector<std::string> IncludePaths) {
+//   // pass the include paths to the context
+//   std::vector<char *> Arguments;
+//   char Argument1[] = "program";
+//   char ArgumentI[] = "-I";
+//   Arguments.push_back(Argument1);
+//   for (auto &IncludePath : IncludePaths) {
+//     Arguments.push_back(ArgumentI);
+//     Arguments.push_back(const_cast<char *>(IncludePath.c_str()));
+//   }
+//   int ArgumentCount = Arguments.size();
+//   struct pet_options *options;
+//   options = pet_options_new_with_defaults();
+//   ArgumentCount = pet_options_parse(options, ArgumentCount, &Arguments[0], ISL_ARG_ALL);
+//   return isl_ctx_alloc_with_options(&pet_options_args, options);
+// }
+
+namespace std {
+std::ostream &operator<<(std::ostream &os, const std::vector<long> &vec) {
+  for (int i = 0; i < vec.size(); ++i) {
+    os << vec[i];
+    if (i < vec.size() - 1)
+      os << " ";
+  }
+  return os;
+}
+} // namespace std
+
+
 
 void rearrangeString(const char *input, char *output) {
     // Initialize variables to store the parts of the rearranged string
@@ -1953,33 +1988,74 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
         fprintf(stdout, "\n  printf(\"Number of integral points: %%d.\\n\",total);");
         fprintf(stdout, "\n  return 0;\n}\n");
     } else if (options->callable && program->language == 'c')
-        print_callable_postamble(stdout, program);
-  //   cloog_program_osl_pprint(stdout,program,options) ;
-  // isl_ctx* 0ctx = isl_ctx_alloc_with_pet_options();
-  // pet_scop_extract_from_C_source(ctx, "/home/nilesh/Polygeist-polymer/polymer/build/test.c", NULL);
-  cloog_program_free(program) ; 
-  // isl_ctx* ctx = isl_ctx_alloc_with_pet_options();
+        print_callable_postamble(stdout, program); 
+  cloog_program_free(program) ;  
   std::vector<char *> Arguments;
   char Argument1[] = "program";
   char ArgumentI[] = "-I";
-  Arguments.push_back(Argument1);
-  // Arguments.push_back(ArgumentI);
-  // Arguments.push_back(const_cast<char *>("/home/cs19mtech11021/Polygeist/llvm-project/build/lib/clang/18/include"));
+  Arguments.push_back(Argument1); 
   int ArgumentCount = Arguments.size();
   struct pet_options *options_;
   options_ = pet_options_new_with_defaults();
   ArgumentCount = pet_options_parse(options_, ArgumentCount, &Arguments[0], ISL_ARG_ALL);
   isl_ctx* ctx = isl_ctx_alloc_with_options(&pet_options_args, options_);
-  // const char *Function = "main";
-  // pet_scop * petScop = pet_scop_extract_from_C_source(ctx, "/home/cs19mtech11021/Polygeist/build/test.c", Function);
-  // if (petScop == nullptr) {
-  //   printf("-> exit(-1) cannot extract scope\n");
-  //   exit(-1);
-  // }
-
-  // pet_scop_dump(pet);
-
   
+  // default
+  const int CACHE_LINE_SIZE = 64;
+  const int CACHE_SIZE2 = 512 * 1024;
+  const int CACHE_SIZE1 = 32 * 1024;
+
+  // Call bullseye  
+  // po::options_description Descriptor("Program options");
+  // Descriptor.add_options()                    //
+  //     ("help,h", "print the program options") //
+  //     ("cache-sizes,c", po::value<std::vector<long>>()->multitoken()->default_value({CACHE_SIZE1, CACHE_SIZE2}),
+  //       "cache sizes in byte")                                                                                       //
+  //     ("line-size,l", po::value<long>()->default_value(CACHE_LINE_SIZE), "cache-line size in byte")                 // 
+  //     ("input-file,f", po::value<std::string>()->default_value("/home/intern24005/code/bullseye/nilesh_Polygeist/Polygeist/build/bullseye/bullseye/examples/gemm.c"), "set the source file [file name]")                                 //
+  //     ("include-path,I", po::value<std::vector<std::string>>(), "set the include path [include path]")              //
+  //     ("define-parameters,d", po::value<std::vector<std::string>>()->multitoken(), "parameter values [N=10 M=100]") //
+  //     ("scop-function,s", po::value<std::string>(), "set the scop function scop")                                   //
+  //     ("compute-bounds,b", po::value<bool>()->default_value(false), "compute stack distance bounds");
+    std::vector<int> cache_sizes;
+  std::string input_file;
+  po::options_description desc("Allowed options");
+  desc.add_options()
+    ("help,h", "print the program options") //
+    ("cache-sizes,c", po::value<std::vector<long>>()->multitoken()->default_value({CACHE_SIZE1, CACHE_SIZE2}),
+        "cache sizes in byte")                                                                                       //
+    ("input-file,f", po::value<std::string>(), "set the source file [file name]")                                 //
+    // ("input-file", po::value<std::string>(&input_file), "Input file") //
+    ("include-path,I", po::value<std::vector<std::string>>(), "set the include path [include path]")              //
+    ("scop-function,s", po::value<std::string>(), "set the scop function scop")                                   //
+    ("define-parameters,d", po::value<std::vector<std::string>>()->multitoken(), "parameter values [N=10 M=100]") //
+    ("compute-bounds,b", po::value<bool>()->default_value(false), "compute stack distance bounds")//
+    ("line-size,l", po::value<long>()->default_value(CACHE_LINE_SIZE), "cache-line size in byte");
+  
+  std::vector<std::string> args = {"","--cache-sizes", "128", "256", "512", "--input-file", "/home/intern24005/code/bullseye/nilesh_Polygeist/Polygeist/build/bullseye/bullseye/examples/gemm.c"};
+  po::variables_map vm; 
+  po::store(po::command_line_parser(args).options(desc).run(), vm);
+  po::notify(vm); 
+  // po::variables_map vm; 
+  // po::store(po::command_line_parser(args).options(Descriptor).run(), vm);
+  // po::notify(vm); 
+
+  // // Output the parsed values
+  // std::cout << "Input file: " << input_file << "\n";
+  // std::cout << "Cache sizes: ";
+  // for (const auto& size : cache_sizes) {
+  //     std::cout << size << " ";
+  // }
+  // std::cout << "\n";
+  
+  // // Run model
+  std::vector<std::string> IncludePaths;
+  isl::ctx Context = allocateContextWithIncludePaths(IncludePaths); 
+
+  bullseyelib::run_model(Context, vm); 
+  auto testing = bullseyelib::run_model; 
+  std::cout<< "===========================================,,,,,,,,,,,,,,,,,,==================================\n";
+  std::cout<< "Linking sucessfully done , here is the location of the bullseyelib::run_model : "<<&testing<<"\n";
   return success();
 }
 
@@ -2085,8 +2161,8 @@ static mlir::func::FuncOp bullseyeCacheMisses(mlir::func::FuncOp f, OpBuilder &r
 }
 
 
-std::pair<unsigned, unsigned> countMemoryAccess(Operation *op, unsigned &memoryAccess, std::vector<Value> &funcArgs, unsigned &arithOp, 
-                          std::unordered_map<Value, int64_t> &inductVarDict) {
+std::pair<unsigned, unsigned> countMemoryAccess(Operation *op, unsigned &memoryAccess, std::vector<mlir::Value> &funcArgs, unsigned &arithOp, 
+                          std::unordered_map<mlir::Value, int64_t> &inductVarDict) {
     // Helper lambda to calculate total trip count from induction variable dictionary
     auto getTripCount = [&inductVarDict]() -> int64_t {
         int64_t tripCount = 1;
@@ -2120,7 +2196,7 @@ std::pair<unsigned, unsigned> countMemoryAccess(Operation *op, unsigned &memoryA
         llvm::outs() << "Trip Count: " << tripCount << "\n";
         
         // Save old trip count for the induction variable and update it
-        Value indVar = forOp.getInductionVar();
+        mlir::Value indVar = forOp.getInductionVar();
         int64_t oldTripCount;
         if (inductVarDict.find(indVar) != inductVarDict.end()) {
             llvm::outs() << "Found\n";
@@ -2147,7 +2223,7 @@ std::pair<unsigned, unsigned> countMemoryAccess(Operation *op, unsigned &memoryA
         int64_t reductionFactor = 2; // Simplified, as your actual logic may vary
 
         // Apply reduction to all relevant trip counts
-        std::unordered_map<Value, int64_t> reducedInductVarDict = inductVarDict;
+        std::unordered_map<mlir::Value, int64_t> reducedInductVarDict = inductVarDict;
         for (auto &pair : reducedInductVarDict) {
             pair.second -= reductionFactor; // Reduce trip count by some factor
             pair.second = std::max(pair.second, int64_t(1)); // Ensure trip count doesn't go below 1
@@ -2173,7 +2249,7 @@ std::pair<unsigned, unsigned> countMemoryAccess(Operation *op, unsigned &memoryA
 void printAI(mlir::func::FuncOp &func) {
         unsigned numMemoryAccesses = 0;
         unsigned numArithOps = 0;
-        std::vector<Value> funcArgs;
+        std::vector<mlir::Value> funcArgs;
 
         // get function entry block arguments
         auto entryBlock = &func.getBlocks().front();
@@ -2185,7 +2261,7 @@ void printAI(mlir::func::FuncOp &func) {
         }        
         
         // Assuming the function's output is the last operand of its ReturnOp, if it exists
-        Value outputArg;
+        mlir::Value outputArg;
         for (auto &block : func.getBlocks()) {
             for (auto &op : block) {
                 if (isa<func::ReturnOp>(op)) {

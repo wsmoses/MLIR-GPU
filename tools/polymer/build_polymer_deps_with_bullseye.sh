@@ -26,6 +26,17 @@ if [[ ! "$CPLEX_HOME_DIR" = /* ]]; then
     exit 1
 fi
 
+# We assume bullseye llvm dir is absolute
+BULLSEYE_LLVM_INSTALL_DIR="$2"
+if [ "$BULLSEYE_LLVM_INSTALL_DIR" = "" ]; then
+    echo No arg specified
+    exit 1
+fi
+if [[ ! "$BULLSEYE_LLVM_INSTALL_DIR" = /* ]]; then
+    echo Need an absolute path for BULLSEYE_LLVM_INSTALL_DIR
+    exit 1
+fi
+
 echo BUILDING PLUTO LLVM IN DIR "$ROOT_DIR"
 
 mkdir -p "$ROOT_DIR"
@@ -53,9 +64,13 @@ if ! test -f "$PLUTO_LLVM_INSTALL_DIR/.DONE"; then
     cd "$PLUTO_LLVM_BUILD_DIR"
     cmake -G Ninja -DCMAKE_INSTALL_PREFIX="$PLUTO_LLVM_INSTALL_DIR" \
             -DLLVM_ENABLE_PROJECTS="clang" \
-            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_BUILD_TYPE=DEBUG \
+            -DLLVM_ENABLE_ASSERTIONS=ON \
             -DLLVM_TARGETS_TO_BUILD=X86 \
             -DLLVM_BUILD_LLVM_DYLIB=ON \
+            -DLLVM_ENABLE_EH=ON \
+            -DLLVM_ENABLE_RTTI=ON \
+            -DLLVM_ABI_BREAKING_CHECKS=FORCE_OFF \
             "$PLUTO_LLVM_SRC_DIR/llvm"
     cmake --build . -j --target install
     touch "$PLUTO_LLVM_INSTALL_DIR/.DONE"
@@ -131,7 +146,7 @@ echo BUILDING BULLSEYE IN DIR "$ROOT_DIR"
 BULLSEYE_PREFIX="$ROOT_DIR/bullseye"
 BULLSEYE_SRC_DIR="$BULLSEYE_PREFIX/bullseye"
 BULLSEYE_INSTALL_DIR="$BULLSEYE_PREFIX/install"
-BULLSEYE_LLVM_INSTALL_BIN_DIR="$PLUTO_LLVM_INSTALL_DIR/bin"
+# BULLSEYE_LLVM_INSTALL_BIN_DIR="$PLUTO_LLVM_INSTALL_DIR/bin"
 if ! test -f "$BULLSEYE_PREFIX/.DONE"; then
     mkdir -p "$BULLSEYE_PREFIX"
     cd "$BULLSEYE_PREFIX"
@@ -139,19 +154,44 @@ if ! test -f "$BULLSEYE_PREFIX/.DONE"; then
 
     git clone https://github.com/IITH-Compilers/bullseye.git "$BULLSEYE_SRC_DIR" || true
     cd "$BULLSEYE_SRC_DIR"
-    git checkout libbullseye
+    #git checkout libbullseye
+    # git submodule update --init --recursive
+    
+    export CPLEX_HOME=$CPLEX_HOME_DIR
+    export LLVM_CONFIG="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
+    export llvm_config="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
+    export with_clang_prefix="${BULLSEYE_LLVM_INSTALL_DIR}"
+    # echo "Before autogen"
+    ISL_COMMIT=e58af07f91c94db81627fb801fa6f52c3a7201a8
+    PET_COMMIT=93e8512e38e55fff92da6dfdda8c7993a7f831e5
     git submodule update --init --recursive
-
-
+    pushd isl
+    git checkout $ISL_COMMIT
+    git submodule update --init --recursive
+    popd
+    pushd barvinok/isl
+    git checkout $ISL_COMMIT
+    git submodule update --init --recursive
+    popd
+    pushd pet
+    git checkout $PET_COMMIT
+    git submodule update --init --recursive
+    popd
     "./isl_fix.sh"
     "./autogen.sh"
     # echo "Autogen done"
 
     # export CPLEX_HOME=/home/intern24005/.local/ILOG/CPLEX_Studio2211
     export CPLEX_HOME=$CPLEX_HOME_DIR
-    export LLVM_CONFIG=$BULLSEYE_LLVM_INSTALL_BIN_DIR/llvm-config
-    ./configure LIBS="-ldl" --prefix=$BULLSEYE_INSTALL_DIR
-    make -j
+    export LLVM_CONFIG="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
+    export llvm_config="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
+    export with_clang_prefix="${BULLSEYE_LLVM_INSTALL_DIR}"
+    ./configure LIBS="-ldl" --prefix=$BULLSEYE_INSTALL_DIR --enable-debug
+    # LD_LIBRARY_PATH=$PLUTO_LLVM_INSTALL_DIR/lib LIBRARY_PATH=$PLUTO_LLVM_INSTALL_DIR/lib make LDFLAGS="-L$PLUTO_LLVM_INSTALL_DIR/lib"
+    export LD_LIBRARY_PATH="$BULLSEYE_LLVM_INSTALL_DIR:$LD_LIBRARY_PATH"
+    make -j 
+    export LD_LIBRARY_PATH="$BULLSEYE_LLVM_INSTALL_DIR:$LD_LIBRARY_PATH"
+    # make -j
     make install
     touch "$BULLSEYE_PREFIX/.DONE"
 
@@ -160,6 +200,6 @@ if ! test -f "$BULLSEYE_PREFIX/.DONE"; then
     # autoreconf -if
     # export CPLEX_HOME=/home/intern24005/.local/ILOG/CPLEX_Studio2211
     # ./configure LIBS="-ldl" --prefix=/home/intern24005/code/bullseye/test/bullseye_build
-    # make 
+    # make
 fi
 
