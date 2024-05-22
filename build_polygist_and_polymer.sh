@@ -1,16 +1,14 @@
 #!/usr/bin/env bash
 
-set -e
-set -x
 
 echo "Run this script in the Root directory of the Polygist repository"
 echo "This script will make a install dir in the root dir of the project and install the llvm built binaries there"
 echo "This script requires the absolute path to the cplex dir "
-
 sleep 10
-
 echo "Running build_polygist_and_polymer.sh"
 
+set -e
+set -x
 # We assume cplex dir is absolute
 CPLEX_HOME_DIR="$1"
 if [ "$CPLEX_HOME_DIR" = "" ]; then
@@ -45,8 +43,6 @@ ninja -j60
 ninja check-mlir
 ninja install
 
-echo "==================================================== LLVM built successfully ==============================================================="
-
 
 cd $HOME_DIR
 mkdir -p build
@@ -67,5 +63,3 @@ cmake -G Ninja .. \
 ninja -j60
 ninja check-polygeist-opt && ninja check-cgeist
 ninja check-polymer
-
-echo "==================================================== Polygeist and Polymer built successfully ==============================================================="

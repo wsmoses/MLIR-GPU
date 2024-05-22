@@ -154,52 +154,28 @@ if ! test -f "$BULLSEYE_PREFIX/.DONE"; then
 
     git clone https://github.com/IITH-Compilers/bullseye.git "$BULLSEYE_SRC_DIR" || true
     cd "$BULLSEYE_SRC_DIR"
-    #git checkout libbullseye
-    # git submodule update --init --recursive
+    git checkout libbullseye
+    git submodule update --init --recursive
     
     export CPLEX_HOME=$CPLEX_HOME_DIR
     export LLVM_CONFIG="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
     export llvm_config="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
     export with_clang_prefix="${BULLSEYE_LLVM_INSTALL_DIR}"
-    # echo "Before autogen"
-    ISL_COMMIT=e58af07f91c94db81627fb801fa6f52c3a7201a8
-    PET_COMMIT=93e8512e38e55fff92da6dfdda8c7993a7f831e5
-    git submodule update --init --recursive
-    pushd isl
-    git checkout $ISL_COMMIT
-    git submodule update --init --recursive
-    popd
-    pushd barvinok/isl
-    git checkout $ISL_COMMIT
-    git submodule update --init --recursive
-    popd
-    pushd pet
-    git checkout $PET_COMMIT
-    git submodule update --init --recursive
-    popd
+
+
     "./isl_fix.sh"
     "./autogen.sh"
-    # echo "Autogen done"
 
-    # export CPLEX_HOME=/home/intern24005/.local/ILOG/CPLEX_Studio2211
     export CPLEX_HOME=$CPLEX_HOME_DIR
     export LLVM_CONFIG="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
     export llvm_config="${BULLSEYE_LLVM_INSTALL_DIR}/bin/llvm-config"
     export with_clang_prefix="${BULLSEYE_LLVM_INSTALL_DIR}"
-    ./configure LIBS="-ldl" --prefix=$BULLSEYE_INSTALL_DIR --enable-debug
-    # LD_LIBRARY_PATH=$PLUTO_LLVM_INSTALL_DIR/lib LIBRARY_PATH=$PLUTO_LLVM_INSTALL_DIR/lib make LDFLAGS="-L$PLUTO_LLVM_INSTALL_DIR/lib"
+    ./configure LIBS="-ldl" --prefix=$BULLSEYE_INSTALL_DIR #--enable-debug
     export LD_LIBRARY_PATH="$BULLSEYE_LLVM_INSTALL_DIR:$LD_LIBRARY_PATH"
     make -j 
     export LD_LIBRARY_PATH="$BULLSEYE_LLVM_INSTALL_DIR:$LD_LIBRARY_PATH"
     # make -j
     make install
     touch "$BULLSEYE_PREFIX/.DONE"
-
-    # "./autogen.sh"
-    # make clean
-    # autoreconf -if
-    # export CPLEX_HOME=/home/intern24005/.local/ILOG/CPLEX_Studio2211
-    # ./configure LIBS="-ldl" --prefix=/home/intern24005/code/bullseye/test/bullseye_build
-    # make
 fi
 
