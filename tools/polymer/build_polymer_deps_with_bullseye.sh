@@ -27,7 +27,7 @@ if [[ ! "$CPLEX_HOME_DIR" = /* ]]; then
 fi
 
 # We assume bullseye llvm dir is absolute
-BULLSEYE_LLVM_INSTALL_DIR="$2"
+BULLSEYE_LLVM_INSTALL_DIR="$3"
 if [ "$BULLSEYE_LLVM_INSTALL_DIR" = "" ]; then
     echo No arg specified
     exit 1
