@@ -15,7 +15,7 @@
 #include "pluto/osl_pluto.h"
 #include "pluto/pluto.h"
 
-#include "bullseye/bullseyelib.h"
+#include "bullseye/bullseyelib.h"  
 
 #include "mlir/Conversion/AffineToStandard/AffineToStandard.h"
 #include "mlir/Dialect/Affine/Analysis/AffineAnalysis.h"
@@ -64,6 +64,7 @@
 #include <cstdarg>
 #include <string>
 #include <vector>
+#include <sstream>
 #include "llvm/Support/raw_ostream.h"
 
 using namespace mlir;
@@ -81,23 +82,6 @@ namespace std {
   };
 }
 
-// isl_ctx *allocateContextWithIncludePaths(std::vector<std::string> IncludePaths) {
-//   // pass the include paths to the context
-//   std::vector<char *> Arguments;
-//   char Argument1[] = "program";
-//   char ArgumentI[] = "-I";
-//   Arguments.push_back(Argument1);
-//   for (auto &IncludePath : IncludePaths) {
-//     Arguments.push_back(ArgumentI);
-//     Arguments.push_back(const_cast<char *>(IncludePath.c_str()));
-//   }
-//   int ArgumentCount = Arguments.size();
-//   struct pet_options *options;
-//   options = pet_options_new_with_defaults();
-//   ArgumentCount = pet_options_parse(options, ArgumentCount, &Arguments[0], ISL_ARG_ALL);
-//   return isl_ctx_alloc_with_options(&pet_options_args, options);
-// }
-
 namespace std {
 std::ostream &operator<<(std::ostream &os, const std::vector<long> &vec) {
   for (int i = 0; i < vec.size(); ++i) {
@@ -108,8 +92,7 @@ std::ostream &operator<<(std::ostream &os, const std::vector<long> &vec) {
   return os;
 }
 } // namespace std
-
-
+ 
 
 void rearrangeString(const char *input, char *output) {
     // Initialize variables to store the parts of the rearranged string
@@ -200,43 +183,6 @@ std::string generateStatement(std::vector<std::string> &reads, std::vector<std::
 
     return statementText;
 }
-// void rearrangeString(const char *input, char *output) {
-//     // Initialize variables to store the parts of the rearranged string
-//     char prefix[100];
-//     char middle[100];
-//     char postfix[100];
-
-//     // Initialize indices for the prefix, middle, and postfix parts
-//     int prefixIndex = 0;
-//     int middleIndex = 0;
-//     int postfixIndex = 0;
-
-//     // Initialize a flag to track if we are inside square brackets
-//     int inBracket = 0;
-
-//     // Iterate through the input string
-//     for (int i = 0; input[i] != '\0'; i++) {
-//         if (input[i] == '[') {
-//             inBracket = 1;
-//             middle[middleIndex++] = '['; // Include the opening bracket in the middle
-//         } else if (input[i] == ']') {
-//             inBracket = 0;
-//             middle[middleIndex++] = ']';
-//             middle[middleIndex] = '\0'; // Null-terminate the middle part
-//         } else if (!inBracket) {
-//             prefix[prefixIndex++] = input[i];
-//             prefix[prefixIndex] = '\0'; // Null-terminate the prefix part
-//         } else {
-//             middle[middleIndex++] = input[i];
-//         }
-//     }
-
-//     // Null-terminate the postfix part
-//     postfix[postfixIndex] = '\0';
-
-//     // Combine the parts to form the rearranged string
-//     sprintf(output, "%s%s%s", prefix, middle, postfix);
-// }
  
 /* Use the CLooG library to output a SCoP from OpenScop to C */
 void print_scop_to_c(FILE* output, osl_scop_p scop) {
@@ -1564,8 +1510,7 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
   CloogProgram * program ;
   CloogOptions * options ;
   CloogState *state;
-  CloogInput * input;
-
+  CloogInput * input; 
   std::vector<std::string> readsAll;
   std::vector<std::string> writesAll;
   
@@ -1858,16 +1803,17 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
     // print_scop_to_c(stdout, scop->get());
     break;
   } 
-
  
-  options->compilable = 1;
-//   options->stop = 1;
-  program->language = 'c';
   /* Generating and printing the code. */
+  FILE *fp = NULL;
+  fp = fopen("./scop.c" ,"w+");
+  options->compilable = 1; 
+  program->language = 'c';
+  options->callable = 1;
   program = cloog_program_generate(program,options);
   
   if (options->structure)
-    cloog_program_print(stdout,program) ;
+    cloog_program_print(fp,program) ;
 //   cloog_program_pprint(stdout,program,options) ;
     int i, j, indentation = 0;
     CloogStatement * statement ;
@@ -1884,14 +1830,14 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
         options->language = CLOOG_LANGUAGE_C ;
     
     #ifdef CLOOG_RUSAGE
-    print_comment(stdout, options, "Generated from %s by %s in %.2fs.",
+    print_comment(fp, options, "Generated from %s by %s in %.2fs.",
             options->name, cloog_version(), options->time);
     #else
-    print_comment(stdout, options, "Generated from %s by %s.",
+    print_comment(fp, options, "Generated from %s by %s.",
             options->name, cloog_version());
     #endif
     #ifdef CLOOG_MEMORY
-    print_comment(stdout, options, "CLooG asked for %d KBytes.", options->memory);
+    print_comment(fp, options, "CLooG asked for %d KBytes.", options->memory);
     cloog_msg(CLOOG_INFO, "%.2fs and %dKB used for code generation.\n",
         options->time,options->memory);
     #endif
@@ -1902,45 +1848,45 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
     */
     if (options->compilable && (program->language == 'c'))
     { /* The headers. */
-        fprintf(stdout,"/* DON'T FORGET TO USE -lm OPTION TO COMPILE. */\n\n") ;
-        fprintf(stdout,"/* Useful headers. */\n") ;
-        fprintf(stdout,"#include <stdio.h>\n") ;
-        fprintf(stdout,"#include <stdlib.h>\n") ;
-        fprintf(stdout,"#include <math.h>\n\n") ;
+        fprintf(fp,"/* DON'T FORGET TO USE -lm OPTION TO COMPILE. */\n\n") ;
+        fprintf(fp,"/* Useful headers. */\n") ;
+        fprintf(fp,"#include <stdio.h>\n") ;
+        fprintf(fp,"#include <stdlib.h>\n") ;
+        fprintf(fp,"#include <math.h>\n\n") ;
 
         /* The value of parameters. */
-        fprintf(stdout,"/* Parameter value. */\n") ;
+        fprintf(fp,"/* Parameter value. */\n") ;
         for (i = 1; i <= program->names->nb_parameters; i++)
-        fprintf(stdout, "#define PARVAL%d %d\n", i, options->compilable);
+        fprintf(fp, "#define PARVAL%d %d\n", i, options->compilable);
         
         /* The macros. */
-        print_macros(stdout);
+        print_macros(fp);
 
         /* The statement macros. */
-        fprintf(stdout,"/* Statement macros (please set). */\n") ;
+        fprintf(fp,"/* Statement macros (please set). */\n") ;
         blocklist = program->blocklist ;
         while (blocklist != NULL)
         { block = blocklist->block ;
         statement = block->statement ;
         while (statement != NULL)
-        { fprintf(stdout,"#define S%d(",statement->number) ;
+        { fprintf(fp,"#define S%d(",statement->number) ;
             if (block->depth > 0)
-            { fprintf(stdout,"%s",program->names->iterators[0]) ;
+            { fprintf(fp,"%s",program->names->iterators[0]) ;
             for(j=1;j<block->depth;j++)
-            fprintf(stdout,",%s",program->names->iterators[j]) ;
+            fprintf(fp,",%s",program->names->iterators[j]) ;
             }
-            fprintf(stdout,") {total++;") ;
+            fprintf(fp,") {total++;") ;
         if (block->depth > 0) {
-            fprintf(stdout, " printf(\"S%d %%d", statement->number);
+            fprintf(fp, " printf(\"S%d %%d", statement->number);
             for(j=1;j<block->depth;j++)
-                fprintf(stdout, " %%d");
+                fprintf(fp, " %%d");
             
-            fprintf(stdout,"\\n\",%s",program->names->iterators[0]) ;
+            fprintf(fp,"\\n\",%s",program->names->iterators[0]) ;
         for(j=1;j<block->depth;j++)
-            fprintf(stdout,",%s",program->names->iterators[j]) ;
-            fprintf(stdout,");") ;
+            fprintf(fp,",%s",program->names->iterators[j]) ;
+            fprintf(fp,");") ;
             }
-            fprintf(stdout,"}\n") ;
+            fprintf(fp,"}\n") ;
             
         statement = statement->next ;
         }
@@ -1948,48 +1894,49 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
         }
         
         /* The iterator and parameter declaration. */
-        fprintf(stdout,"\nint main() {\n") ; 
-        print_iterator_declarations(stdout, program, options);
+        fprintf(fp,"\nint main() {\n") ; 
+        print_iterator_declarations(fp, program, options);
         if (program->names->nb_parameters > 0)
-        { fprintf(stdout,"  /* Parameters. */\n") ;
-        fprintf(stdout, "  int %s=PARVAL1",program->names->parameters[0]);
+        { fprintf(fp,"  /* Parameters. */\n") ;
+        fprintf(fp, "  int %s=PARVAL1",program->names->parameters[0]);
         for(i=2;i<=program->names->nb_parameters;i++)
-            fprintf(stdout, ", %s=PARVAL%d", program->names->parameters[i-1], i);
+            fprintf(fp, ", %s=PARVAL%d", program->names->parameters[i-1], i);
         
-        fprintf(stdout,";\n");
+        fprintf(fp,";\n");
         }
-        fprintf(stdout,"  int total=0;\n");
+        fprintf(fp,"  int total=0;\n");
         generateDeclarations(readsAll, writesAll);
         int maxBound = 2000;
         for(auto it = arraySizes.begin(); it != arraySizes.end(); ++it) {
-            fprintf(stdout, "  int %s", it->first.c_str());
+            fprintf(fp, "  int %s", it->first.c_str());
             for(int p=0; p < it->second; p++) {
-                fprintf(stdout, "[%d]",  maxBound);
+                fprintf(fp, "[%d]",  maxBound);
             }
-            fprintf(stdout, ";\n");
+            fprintf(fp, ";\n");
         }
-        fprintf(stdout,"\n") ;
-        
+        fprintf(fp,"\n") ; 
         /* And we adapt the identation. */
         indentation += 2 ;
     } else if (options->callable && program->language == 'c') {
-        print_callable_preamble(stdout, program, options);
+        print_callable_preamble(fp, program, options);
         indentation += 2;
     }
-    fprintf(stdout, "#pragma scop\n");
+    fprintf(fp, "#pragma scop\n");
     root = cloog_clast_create(program, options);
-    clast_pprint(stdout, root, indentation, options);
+    clast_pprint(fp, root, indentation, options);
     cloog_clast_free(root);
-    fprintf(stdout, "#pragma endscop\n");
+    fprintf(fp, "#pragma endscop\n");
 
     /* The end of the compilable code in case of 'compilable' option. */
     if (options->compilable && (program->language == 'c'))
     {
-        fprintf(stdout, "\n  printf(\"Number of integral points: %%d.\\n\",total);");
-        fprintf(stdout, "\n  return 0;\n}\n");
+        fprintf(fp, "\n  printf(\"Number of integral points: %%d.\\n\",total);");
+        fprintf(fp, "\n  return 0;\n}\n");
     } else if (options->callable && program->language == 'c')
-        print_callable_postamble(stdout, program); 
-  cloog_program_free(program) ;  
+        print_callable_postamble(fp, program); 
+  cloog_program_free(program) ;   
+  fclose(fp);
+
   std::vector<char *> Arguments;
   char Argument1[] = "program";
   char ArgumentI[] = "-I";
@@ -2017,36 +1964,28 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
   //     ("define-parameters,d", po::value<std::vector<std::string>>()->multitoken(), "parameter values [N=10 M=100]") //
   //     ("scop-function,s", po::value<std::string>(), "set the scop function scop")                                   //
   //     ("compute-bounds,b", po::value<bool>()->default_value(false), "compute stack distance bounds");
-    std::vector<int> cache_sizes;
+  std::vector<int> cache_sizes;
   std::string input_file;
   po::options_description desc("Allowed options");
   desc.add_options()
     ("help,h", "print the program options") //
     ("cache-sizes,c", po::value<std::vector<long>>()->multitoken()->default_value({CACHE_SIZE1, CACHE_SIZE2}),
-        "cache sizes in byte")                                                                                       //
-    ("input-file,f", po::value<std::string>(), "set the source file [file name]")                                 //
-    // ("input-file", po::value<std::string>(&input_file), "Input file") //
+        "cache sizes in byte")                                                                                    //
+    ("input-file,f", po::value<std::string>(), "set the source file [file name]")                                 // 
     ("include-path,I", po::value<std::vector<std::string>>(), "set the include path [include path]")              //
     ("scop-function,s", po::value<std::string>(), "set the scop function scop")                                   //
     ("define-parameters,d", po::value<std::vector<std::string>>()->multitoken(), "parameter values [N=10 M=100]") //
     ("compute-bounds,b", po::value<bool>()->default_value(false), "compute stack distance bounds")//
     ("line-size,l", po::value<long>()->default_value(CACHE_LINE_SIZE), "cache-line size in byte");
   
-  std::vector<std::string> args = {"","--cache-sizes", "128", "256", "512", "--input-file", "/home/intern24005/code/bullseye/nilesh_Polygeist/Polygeist/build/bullseye/bullseye/examples/gemm.c"};
+  std::vector<std::string> args = {"","--cache-sizes", "32768", "1048576", "--input-file", "./scop.c"};
   po::variables_map vm; 
   po::store(po::command_line_parser(args).options(desc).run(), vm);
   po::notify(vm); 
   // po::variables_map vm; 
   // po::store(po::command_line_parser(args).options(Descriptor).run(), vm);
   // po::notify(vm); 
-
-  // // Output the parsed values
-  // std::cout << "Input file: " << input_file << "\n";
-  // std::cout << "Cache sizes: ";
-  // for (const auto& size : cache_sizes) {
-  //     std::cout << size << " ";
-  // }
-  // std::cout << "\n";
+ 
   
   // // Run model
   std::vector<std::string> IncludePaths;
@@ -2059,30 +1998,30 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
   return success();
 }
 
-struct pet_scop* pluto_to_pet(PlutoProg *prog, PlutoContext *context) {
+// struct pet_scop* pluto_to_pet(PlutoProg *prog, PlutoContext *context) {
     
-    if (prog == NULL)
-        return NULL;
+//     if (prog == NULL)
+//         return NULL;
 
-    FILE *fpout = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", "w");    
-    FILE *fp2 = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.cloog", "w");
+//     FILE *fpout = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", "w");    
+//     FILE *fp2 = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.cloog", "w");
     
-    pluto_gen_cloog_file(fp2, prog);
-    rewind(fpout);
-    rewind(fp2);
-    // pluto_schedule_prog(prog);  
-    pluto_multicore_codegen(fp2, fpout, prog);
+//     pluto_gen_cloog_file(fp2, prog);
+//     rewind(fpout);
+//     rewind(fp2);
+//     // pluto_schedule_prog(prog);  
+//     pluto_multicore_codegen(fp2, fpout, prog);
 
-    // print_scop_to_c(fpout, scop->get());
-    // isl_ctx *pctx = isl_ctx_alloc_with_pet_options();
+//     // print_scop_to_c(fpout, scop->get());
+//     // isl_ctx *pctx = isl_ctx_alloc_with_pet_options();
  
-    // struct pet_scop *pscop =
-    //     pet_scop_extract_from_C_source(pctx, "/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", NULL);
-    // pet_scop_dump(pscop);
-    fclose(fpout);
-    fclose(fp2);
-    return nullptr;
-}
+//     // struct pet_scop *pscop =
+//     //     pet_scop_extract_from_C_source(pctx, "/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", NULL);
+//     // pet_scop_dump(pscop);
+//     fclose(fpout);
+//     fclose(fp2);
+//     return nullptr;
+// }
 
 /// The main function that implements the BullsEye based analysis. 
 static mlir::func::FuncOp bullseyeCacheMisses(mlir::func::FuncOp f, OpBuilder &rewriter, 
@@ -2121,9 +2060,9 @@ static mlir::func::FuncOp bullseyeCacheMisses(mlir::func::FuncOp f, OpBuilder &r
         context->options->cloogl = cloogl;
 
     PlutoProg *prog = osl_scop_to_pluto_prog(scop->get(), context); 
-    FILE *fpout = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", "w");    
-    print_scop_to_c(fpout, scop->get());
-    fclose(fpout);
+    // FILE *fpout = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", "w");    
+    // print_scop_to_c(fpout, scop->get());
+    // fclose(fpout);
     // prog->stmts->print();
 
     if (!prog) {
@@ -2137,9 +2076,7 @@ static mlir::func::FuncOp bullseyeCacheMisses(mlir::func::FuncOp f, OpBuilder &r
     }
     
     // pluto_schedule_prog(prog);
-    pluto_populate_scop(scop->get(), prog, context);
-    // pluto_to_pet(prog, context);
-    
+    pluto_populate_scop(scop->get(), prog, context); 
 
     const char *dumpClastAfterPlutoStr = nullptr;
     if (!dumpClastAfterPluto.empty())
@@ -2295,6 +2232,16 @@ void printAI(mlir::func::FuncOp &func) {
         llvm::outs() << "Memory Accesses: " << numMemoryAccesses*4 << "\n";
         llvm::outs() << "Arithmetic Operations: " << numArithOps << "\n\n";
         llvm::outs() << "Arithmetic Intensity: " << (double)numArithOps / (numMemoryAccesses*4) << "\n";
+
+        // Create float type
+        mlir::FloatType floatType = mlir::FloatType::getF32(func->getContext());
+        // Create the float attribute
+        mlir::FloatAttr floatAttr = mlir::FloatAttr::get(floatType, numArithOps); 
+        // Set value of the attribute
+        func->setAttr("flops", floatAttr);
+
+        mlir::FloatAttr floatAttr2 = mlir::FloatAttr::get(floatType, numMemoryAccesses*4);
+        func->setAttr("bytes", floatAttr2);
 }
 
 
@@ -2322,7 +2269,7 @@ namespace {
                 llvm::DenseMap<mlir::func::FuncOp, mlir::func::FuncOp> funcMap;
                 llvm::raw_ostream *out = &llvm::errs();
                 std::error_code EC;
-                out = new raw_fd_ostream("/home/cs19mtech11021/Polygeist/build/bin/osp.scop", EC);
+                out = new raw_fd_ostream("", EC);
                 emitOpenScop(m, *out); 
                 if (out != &outs())
                      delete out;
@@ -2333,29 +2280,7 @@ namespace {
                       printAI(f);  
                     // }
                 });
-
-                // for (mlir::FuncOp f : funcOps) {
-                //     printScop(f);
-                // } 
-                // for (mlir::FuncOp f : funcOps) 
-                //     if (mlir::FuncOp g =
-                //             bullseyeCacheMisses(f, b, dumpClastAfterPluto,
-                //              cloogf, cloogl, debug)) {
-                //         // g.dump();
-                //         funcMap[f] = g;
-                //         g.setPublic();
-                //         g->setAttrs(f->getAttrs());
-                //     }
-
-                // m.walk([&](mlir::FuncOp f){
-                //     // f.dump();
-                //     f.walk([&](mlir::AffineForOp forOp){
-                //         forOp.dump();
-                //         forOp.walk([&](mlir::AffineLoadOp loadOp){
-                //             loadOp.dump();
-                //         });
-                //     });
-                // });
+ 
         }
     };
 
