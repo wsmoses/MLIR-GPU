@@ -1936,134 +1936,65 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
         print_callable_postamble(fp, program); 
   cloog_program_free(program) ;   
   fclose(fp);
-
-  std::vector<char *> Arguments;
-  char Argument1[] = "program";
-  char ArgumentI[] = "-I";
-  Arguments.push_back(Argument1); 
-  int ArgumentCount = Arguments.size();
-  struct pet_options *options_;
-  options_ = pet_options_new_with_defaults();
-  ArgumentCount = pet_options_parse(options_, ArgumentCount, &Arguments[0], ISL_ARG_ALL);
-  isl_ctx* ctx = isl_ctx_alloc_with_options(&pet_options_args, options_);
-  
-  // default
-  const int CACHE_LINE_SIZE = 64;
-  const int CACHE_SIZE2 = 512 * 1024;
-  const int CACHE_SIZE1 = 32 * 1024;
-
-  // Call bullseye  
-  std::vector<std::string> IncludePaths;
-  std::vector<std::string> defineparameters;
-  isl::ctx Context = allocateContextWithIncludePaths(IncludePaths); 
-  std::vector<long> CacheSizes = {CACHE_SIZE1, CACHE_SIZE2};
-  bullseyelib::ProgramParameters Parameters("./scop.c",
-      CacheSizes, CACHE_LINE_SIZE, IncludePaths, defineparameters, "", false); 
-
-  bullseyelib::CacheMissResults cmc = bullseyelib::run_model_new(Context, Parameters); 
-  auto testing = bullseyelib::run_model_new; 
-  std::cout<< "===========================================,,,,,,,,,,,,,,,,,,==================================\n";
-  std::cout<< "Linking sucessfully done , here is the location of the bullseyelib::run_model : "<<&testing<<"\n";
   return success();
 }
 
-// struct pet_scop* pluto_to_pet(PlutoProg *prog, PlutoContext *context) {
-    
-//     if (prog == NULL)
-//         return NULL;
-
-//     FILE *fpout = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", "w");    
-//     FILE *fp2 = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.cloog", "w");
-    
-//     pluto_gen_cloog_file(fp2, prog);
-//     rewind(fpout);
-//     rewind(fp2);
-//     // pluto_schedule_prog(prog);  
-//     pluto_multicore_codegen(fp2, fpout, prog);
-
-//     // print_scop_to_c(fpout, scop->get());
-//     // isl_ctx *pctx = isl_ctx_alloc_with_pet_options();
- 
-//     // struct pet_scop *pscop =
-//     //     pet_scop_extract_from_C_source(pctx, "/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", NULL);
-//     // pet_scop_dump(pscop);
-//     fclose(fpout);
-//     fclose(fp2);
-//     return nullptr;
-// }
-
-/// The main function that implements the BullsEye based analysis. 
-static mlir::func::FuncOp bullseyeCacheMisses(mlir::func::FuncOp f, OpBuilder &rewriter, 
-                                   std::string dumpClastAfterPluto,
-                                   int cloogf = -1, int cloogl = -1, bool debug = false) {
+// The main function that implements the BullsEye based analysis  
+static mlir::func::FuncOp bullseyeCacheMisses(mlir::func::FuncOp f) {
 
     LLVM_DEBUG(dbgs() << "BullsEye Analysis: \n");
     LLVM_DEBUG(f.dump());
 
-    PlutoContext *context = pluto_context_alloc();
-    OslSymbolTable srcTable, dstTable;
- 
-    std::unique_ptr<OslScop> scop = createOpenScopFromFuncOp(f, srcTable);
-    if (!scop)
-        return nullptr;
-    if (scop->getNumStatements() == 0)
-        return nullptr;
-
-    scop->print();
-
-    // Should use isldep, candl cannot work well for this case.
-    context->options->silent = !debug;
-    context->options->moredebug = debug;
-    context->options->debug = debug;
-    context->options->isldep = 1;
-    context->options->readscop = 1;
-    context->options->identity = 0;
-    context->options->parallel = false;
-    context->options->unrolljam = 0;
-    context->options->prevector = 0;
-    context->options->diamondtile = false;
+    std::vector<char *> Arguments;
+    char Argument1[] = "program";
+    char ArgumentI[] = "-I";
+    Arguments.push_back(Argument1); 
+    int ArgumentCount = Arguments.size();
+    struct pet_options *options_;
+    options_ = pet_options_new_with_defaults();
+    ArgumentCount = pet_options_parse(options_, ArgumentCount, &Arguments[0], ISL_ARG_ALL);
+    isl_ctx* ctx = isl_ctx_alloc_with_options(&pet_options_args, options_);
     
-    if (cloogf != -1)
-        context->options->cloogf = cloogf;
-    if (cloogl != -1)
-        context->options->cloogl = cloogl;
+    // default
+    const int CACHE_LINE_SIZE = 64;
+    const int CACHE_SIZE3 = 1024 * 1024;
+    const int CACHE_SIZE2 = 512 * 1024;
+    const int CACHE_SIZE1 = 32 * 1024;
 
-    PlutoProg *prog = osl_scop_to_pluto_prog(scop->get(), context); 
-    // FILE *fpout = fopen("/home/nilesh/Polygeist-polymer/polymer/build/bin/pluto.c", "w");    
-    // print_scop_to_c(fpout, scop->get());
-    // fclose(fpout);
-    // prog->stmts->print();
+    // Call bullseye  
+    std::vector<std::string> IncludePaths;
+    std::vector<std::string> defineparameters;
+    isl::ctx Context = allocateContextWithIncludePaths(IncludePaths); 
+    std::vector<long> CacheSizes = {CACHE_SIZE1, CACHE_SIZE2, CACHE_SIZE3};
+    bullseyelib::ProgramParameters Parameters("./scop.c",
+        CacheSizes, CACHE_LINE_SIZE, IncludePaths, defineparameters, "", false); 
 
-    if (!prog) {
-        LLVM_DEBUG(dbgs() << "BullsEye Analysis: failed to generate a program.\n");
-        return nullptr;
-    } 
+    bullseyelib::CacheMissResults cmc = bullseyelib::run_model_new(Context, Parameters); 
+    std::vector<long> cap_misses = cmc.TotalCapacity;
 
-    if (debug) { // Otherwise things dumped afterwards will mess up.
-        fflush(stderr);
-        fflush(stdout);
+    // Add the attributes to the function
+    mlir::FloatType floatType = mlir::FloatType::getF32(f->getContext());
+    mlir::IntegerType intType = mlir::IntegerType::get(f->getContext(), 64); 
+    mlir::IntegerAttr* intAttr = new mlir::IntegerAttr[cap_misses.size()];
+
+    int attr_c = 0;
+    std::string level = "";
+    for(double cp : cap_misses) {
+        std::cout << "Capacity Misses: " << cp << "\n"; 
+        intAttr[attr_c] = mlir::IntegerAttr::get(intType, cp);
+        level = "L" + std::to_string(attr_c+1);
+        f->setAttr(level, intAttr[attr_c++]);
     }
     
-    // pluto_schedule_prog(prog);
-    pluto_populate_scop(scop->get(), prog, context); 
+    // Create the float attribute
+    mlir::FloatAttr floatAttr1 = mlir::FloatAttr::get(floatType, cmc.TotalCompulsory); 
+    // Set value of the attribute
+    f->setAttr("compulsory", floatAttr1);
 
-    const char *dumpClastAfterPlutoStr = nullptr;
-    if (!dumpClastAfterPluto.empty())
-        dumpClastAfterPlutoStr = dumpClastAfterPluto.c_str();
-
-    mlir::ModuleOp m = dyn_cast<mlir::ModuleOp>(f->getParentOp());
-    SmallVector<DictionaryAttr> argAttrs;
-    f.getAllArgAttrs(argAttrs);
-    
-
-    mlir::func::FuncOp g = cast<mlir::func::FuncOp>(createFuncOpFromOpenScop(
-        std::move(scop), m, dstTable, rewriter.getContext(), prog, dumpClastAfterPlutoStr));
-    g.setAllArgAttrs(argAttrs);
-
-
-
-    pluto_context_free(context);
-    return g;
+    mlir::FloatAttr floatAttr2 = mlir::FloatAttr::get(floatType, cmc.TotalAccesses);
+    f->setAttr("accesses", floatAttr2);  
+ 
+    return f;
 }
 
 
@@ -2219,11 +2150,6 @@ namespace {
         public mlir::PassWrapper<BullsEyeAnalysisPass, 
                                  OperationPass<mlir::ModuleOp>> {
 
-        std::string dumpClastAfterPluto = "";
-        bool debug = false;
-        int cloogf = -1;
-        int cloogl = -1;
-
         public:
         BullsEyeAnalysisPass() = default;
         BullsEyeAnalysisPass(const BullsEyeAnalysisPass &pass) {}
@@ -2233,9 +2159,6 @@ namespace {
                 mlir::ModuleOp m = getOperation();
 
                 mlir::OpBuilder b(m.getContext());
-
-                SmallVector<mlir::func::FuncOp, 8> funcOps;
-                llvm::DenseMap<mlir::func::FuncOp, mlir::func::FuncOp> funcMap;
                 llvm::raw_ostream *out = &llvm::errs();
                 std::error_code EC;
                 out = new raw_fd_ostream("", EC);
@@ -2244,10 +2167,11 @@ namespace {
                      delete out;
 
                 m.walk([&](mlir::func::FuncOp f) {
-                    // if (!f->getAttr("scop.stmt") && !f->hasAttr("scop.ignored")) {
+                    if (!f->getAttr("scop.stmt") && !f->hasAttr("scop.ignored")) {
                       f.dump();
-                      printAI(f);  
-                    // }
+                      f = bullseyeCacheMisses(f);
+                    }
+                    printAI(f);  
                 });
  
         }
