@@ -1953,46 +1953,15 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
   const int CACHE_SIZE1 = 32 * 1024;
 
   // Call bullseye  
-  // po::options_description Descriptor("Program options");
-  // Descriptor.add_options()                    //
-  //     ("help,h", "print the program options") //
-  //     ("cache-sizes,c", po::value<std::vector<long>>()->multitoken()->default_value({CACHE_SIZE1, CACHE_SIZE2}),
-  //       "cache sizes in byte")                                                                                       //
-  //     ("line-size,l", po::value<long>()->default_value(CACHE_LINE_SIZE), "cache-line size in byte")                 // 
-  //     ("input-file,f", po::value<std::string>()->default_value("/home/intern24005/code/bullseye/nilesh_Polygeist/Polygeist/build/bullseye/bullseye/examples/gemm.c"), "set the source file [file name]")                                 //
-  //     ("include-path,I", po::value<std::vector<std::string>>(), "set the include path [include path]")              //
-  //     ("define-parameters,d", po::value<std::vector<std::string>>()->multitoken(), "parameter values [N=10 M=100]") //
-  //     ("scop-function,s", po::value<std::string>(), "set the scop function scop")                                   //
-  //     ("compute-bounds,b", po::value<bool>()->default_value(false), "compute stack distance bounds");
-  std::vector<int> cache_sizes;
-  std::string input_file;
-  po::options_description desc("Allowed options");
-  desc.add_options()
-    ("help,h", "print the program options") //
-    ("cache-sizes,c", po::value<std::vector<long>>()->multitoken()->default_value({CACHE_SIZE1, CACHE_SIZE2}),
-        "cache sizes in byte")                                                                                    //
-    ("input-file,f", po::value<std::string>(), "set the source file [file name]")                                 // 
-    ("include-path,I", po::value<std::vector<std::string>>(), "set the include path [include path]")              //
-    ("scop-function,s", po::value<std::string>(), "set the scop function scop")                                   //
-    ("define-parameters,d", po::value<std::vector<std::string>>()->multitoken(), "parameter values [N=10 M=100]") //
-    ("compute-bounds,b", po::value<bool>()->default_value(false), "compute stack distance bounds")//
-    ("line-size,l", po::value<long>()->default_value(CACHE_LINE_SIZE), "cache-line size in byte");
-  
-  std::vector<std::string> args = {"","--cache-sizes", "32768", "1048576", "--input-file", "./scop.c"};
-  po::variables_map vm; 
-  po::store(po::command_line_parser(args).options(desc).run(), vm);
-  po::notify(vm); 
-  // po::variables_map vm; 
-  // po::store(po::command_line_parser(args).options(Descriptor).run(), vm);
-  // po::notify(vm); 
- 
-  
-  // // Run model
   std::vector<std::string> IncludePaths;
+  std::vector<std::string> defineparameters;
   isl::ctx Context = allocateContextWithIncludePaths(IncludePaths); 
+  std::vector<long> CacheSizes = {CACHE_SIZE1, CACHE_SIZE2};
+  bullseyelib::ProgramParameters Parameters("./scop.c",
+      CacheSizes, CACHE_LINE_SIZE, IncludePaths, defineparameters, "", false); 
 
-  bullseyelib::run_model(Context, vm); 
-  auto testing = bullseyelib::run_model; 
+  bullseyelib::CacheMissResults cmc = bullseyelib::run_model_new(Context, Parameters); 
+  auto testing = bullseyelib::run_model_new; 
   std::cout<< "===========================================,,,,,,,,,,,,,,,,,,==================================\n";
   std::cout<< "Linking sucessfully done , here is the location of the bullseyelib::run_model : "<<&testing<<"\n";
   return success();
