@@ -135,6 +135,7 @@ void rearrangeString(const char *input, char *output) {
                 // Skip the integer if it was already subtracted from
                 i++;
                 subtractOne = 0;
+                middle[middleIndex++] = input[i]; // Include the character as is
             }
         }
     }
@@ -1738,6 +1739,7 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
             OSL_malloc(reversedAccess, char *, 2048 * sizeof(char));
             reversedAccess[0] = '\0';
             rearrangeString(statementAccess, reversedAccess);
+            printf("Reversed Access: %s\n", reversedAccess);
             
             if(strcmp(type, "READ") == 0) {
                   printf("\nRead Access: ");
@@ -1908,7 +1910,7 @@ static LogicalResult emitOpenScop(ModuleOp module, llvm::raw_ostream &os) {
         generateDeclarations(readsAll, writesAll);
         int maxBound = 2000;
         for(auto it = arraySizes.begin(); it != arraySizes.end(); ++it) {
-            fprintf(fp, "  int %s", it->first.c_str());
+            fprintf(fp, "  double %s", it->first.c_str());
             for(int p=0; p < it->second; p++) {
                 fprintf(fp, "[%d]",  maxBound);
             }
@@ -1991,9 +1993,12 @@ static mlir::func::FuncOp bullseyeCacheMisses(mlir::func::FuncOp f) {
     // Set value of the attribute
     f->setAttr("compulsory", floatAttr1);
 
-    mlir::FloatAttr floatAttr2 = mlir::FloatAttr::get(floatType, cmc.TotalAccesses);
-    f->setAttr("accesses", floatAttr2);  
- 
+    mlir::IntegerAttr intAttr1 = mlir::IntegerAttr::get(intType, cmc.TotalFlopCount_);
+    f->setAttr("flops", intAttr1);
+
+    mlir::FloatAttr floatAttr2 = mlir::FloatAttr::get(floatType, cmc.TotalAccesses*8);
+    f->setAttr("bytes", floatAttr2);  
+
     return f;
 }
 
@@ -2133,15 +2138,6 @@ void printAI(mlir::func::FuncOp &func) {
         llvm::outs() << "Arithmetic Operations: " << numArithOps << "\n\n";
         llvm::outs() << "Arithmetic Intensity: " << (double)numArithOps / (numMemoryAccesses*4) << "\n";
 
-        // Create float type
-        mlir::FloatType floatType = mlir::FloatType::getF32(func->getContext());
-        // Create the float attribute
-        mlir::FloatAttr floatAttr = mlir::FloatAttr::get(floatType, numArithOps); 
-        // Set value of the attribute
-        func->setAttr("flops", floatAttr);
-
-        mlir::FloatAttr floatAttr2 = mlir::FloatAttr::get(floatType, numMemoryAccesses*4);
-        func->setAttr("bytes", floatAttr2);
 }
 
 
@@ -2163,8 +2159,8 @@ namespace {
                 std::error_code EC;
                 out = new raw_fd_ostream("", EC);
                 emitOpenScop(m, *out); 
-                if (out != &outs())
-                     delete out;
+                // if (out != &outs())
+                //      delete out;
 
                 m.walk([&](mlir::func::FuncOp f) {
                     if (!f->getAttr("scop.stmt") && !f->hasAttr("scop.ignored")) {
