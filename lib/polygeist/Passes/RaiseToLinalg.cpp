@@ -306,6 +306,8 @@ LogicalResult getLinalgArgMap(Operation *loop, Value &input, AffineMap &lgMap,
     if (auto SM = dyn_cast<polygeist::SubmapOp>(defOp)) {
       auto submap = SM.getMap();
 
+      //TODO: Do we achieve anything with this compose?
+      //As lgMap in our case is 1 to 1 identity map
       auto composeMap = submap.compose(lgMap);
 
       SmallVector<Value> operands0;
@@ -462,6 +464,7 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
     // Additionally, for each load/store, remember what conditions are
     // required for that load or store to execute.
     auto result = loop->walk<WalkOrder::PreOrder>([&](Operation *op) {
+      llvm::outs()<< op->getName() << "\n";
       if (op == loop)
         return WalkResult::advance();
       // TODO extend this, any non-memory operation is also legal here.
@@ -781,15 +784,21 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
     // TODO if linalg generic exists, make this iterator type prepend to the
     // existing iterators
 
+    bool is_parallel = stores_map.size() == 0;
+    // TODO determine if linalg generic, whether to create parallel or reduction by looking at memory patterns of maps
+
     if (linalgGenerics.size() == 1) {
-      for (auto attr : linalgGenerics[0].second.getIteratorTypesArray())
-          iteratorTypes.push_back(utils::IteratorType::parallel);
+      // determine whether now we write to ourselves
     }
 
-    // TODO determine if linalg generic, whether to create parallel or reduction by looking at memory patterns of maps
-    iteratorTypes.push_back((stores_map.size() == 0)
+    iteratorTypes.push_back(is_parallel
                                 ? utils::IteratorType::parallel
                                 : utils::IteratorType::reduction);
+
+    if (linalgGenerics.size() == 1) {
+      for (auto attr : linalgGenerics[0].second.getIteratorTypesArray())
+          iteratorTypes.push_back(attr);
+    }
 
     StringAttr empty = StringAttr::get(loop.getContext());
     auto genericOp = rewriter.create<mlir::linalg::GenericOp>(

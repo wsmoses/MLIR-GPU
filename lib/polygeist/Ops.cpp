@@ -5881,7 +5881,6 @@ LogicalResult GetFuncOp::verifySymbolUses(SymbolTableCollection &symbolTable) {
   return success();
 }
 
-/*
 class LoadSubMap final : public OpRewritePattern<affine::AffineLoadOp> {
 public:
   using OpRewritePattern<affine::AffineLoadOp>::OpRewritePattern;
@@ -5891,31 +5890,53 @@ public:
     auto subMapOp = op.getMemRef().getDefiningOp<polygeist::SubmapOp>();
     if (!subMapOp) return failure();
 
-    auto submap_map = ref.getAffineMap();
-    auto submap_operands = ref.getAffineMapOperands();
-    auto source_memref = ref.getMemref();
+    auto submap_map = subMapOp.getMap();
+    auto submap_operands = subMapOp.getSymbols();
+    auto source_memref = subMapOp.getMemref();
     
-    auto load_map = ref.getAffineMap();
-    SmallVector<Value, 4> operands0 = op.getMapOperands();
+    auto load_map = op.getAffineMap();
+    auto load_operands = op.getMapOperands();
 
-    // %m = polygeist.submap submap_map(%submap_operands) %source_memref : memref<f32x?x?> -> memref<f32x?x?x?>
-    // %a = affine.load %m[load_map(%load_operands)]
-    // ->
-    // %a = affine.load %source_memref[load_map(submap_map(%load_operands, %submap_operands))]
+    auto new_map = submap_map.compose(load_map);
 
-    auto new_map = load_map.compose(submap_map);
-    auto new_operands = llvm::concat(load_operands, submap_operands)
+    SmallVector<Value, 4> operands;
+    operands.append(load_operands.begin(), load_operands.begin() + load_map.getNumDims());
+    operands.append(submap_operands.begin(), submap_operands.end());
+    operands.append(load_operands.begin() + load_map.getNumDims(), load_operands.end());
 
-    rewriter.replaceOpWithNewOp<affine::AffineLoadOp>(op.getLoc(), sourceMemref, );
-
-
-
-    // shift one map over by the size of other # symbols/dims, replace with new affine load with composed map
+    rewriter.replaceOpWithNewOp<affine::AffineLoadOp>(op, source_memref, new_map, operands);
     return success();
   }
 };
-*/
-// TODO StoreSubMap
+
+
+class StoreSubMap final : public OpRewritePattern<affine::AffineStoreOp> {
+public:
+  using OpRewritePattern<affine::AffineStoreOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(affine::AffineStoreOp op,
+                                PatternRewriter &rewriter) const override {
+    auto subMapOp = op.getMemRef().getDefiningOp<polygeist::SubmapOp>();
+    if (!subMapOp) return failure();
+
+    auto submap_map = subMapOp.getMap();
+    auto submap_operands = subMapOp.getSymbols();
+    auto source_memref = subMapOp.getMemref();
+    
+    auto load_map = op.getAffineMap();
+    auto load_operands = op.getMapOperands();
+
+    auto new_map = submap_map.compose(load_map);
+
+    SmallVector<Value, 4> operands;
+    operands.append(load_operands.begin(), load_operands.begin() + load_map.getNumDims());
+    operands.append(submap_operands.begin(), submap_operands.end());
+    operands.append(load_operands.begin() + load_map.getNumDims(), load_operands.end());
+
+    rewriter.replaceOpWithNewOp<affine::AffineStoreOp>(op, op.getValue(), source_memref, new_map, operands);
+    return success();
+  }
+};
 
 OpFoldResult mlir::polygeist::SubmapOp::fold(mlir::polygeist::SubmapOp::FoldAdaptor adaptor) {
   // TODO if submap is identity return nothing
@@ -5925,5 +5946,5 @@ OpFoldResult mlir::polygeist::SubmapOp::fold(mlir::polygeist::SubmapOp::FoldAdap
 
 void polygeist::SubmapOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                             MLIRContext *context) {
-  //results.insert<LoadSubMap>(context);
+  results.insert<LoadSubMap, StoreSubMap>(context);
 }
