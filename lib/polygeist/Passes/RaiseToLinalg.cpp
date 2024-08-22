@@ -117,9 +117,10 @@ AffineMap shiftDimsDown1(AffineMap expr, unsigned numDim, unsigned offset) {
 //  indices into `newval` such that
 //     indexing `newval[map(indices)]` produces the same result as indexing the
 //     original map.
-
+// check_reduction is set true, when passed from store/linalg.generic's output variable.
+// And it is returned true, only if index was not encountered in oldmap operands and check_reduction was set true. 
 Value remap_in_affine_dim(bool &legal, OpBuilder &builder, AffineMap oldmap,
-                    Value memref_val, Value index, Value bound, int firstNDims, ValueRange oldmap_operands) {
+                    Value memref_val, Value index, Value bound, int firstNDims, ValueRange oldmap_operands, bool &check_reduction) {
   assert(oldmap_operands.size() == oldmap.getNumSymbols() + oldmap.getNumDims());
   //Operands which don't correspond to indices
   SmallVector<Value> operands_without_indices;
@@ -135,7 +136,11 @@ Value remap_in_affine_dim(bool &legal, OpBuilder &builder, AffineMap oldmap,
     else
       dimidx = i;
   }
-  
+  if((dimidx == -1) && (check_reduction))
+    check_reduction = true;
+  else 
+    check_reduction = false;
+
   SmallVector<AffineExpr> dimReplacements;
   size_t validSims = 0;
   size_t validDims = 0;
@@ -457,6 +462,8 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
     SmallVector<std::pair<std::vector<Condition>, AffineLoadOp>> loads;
     SmallVector<std::pair<std::vector<Condition>, AffineStoreOp>> stores;
     SmallVector<std::pair<std::vector<Condition>, GenericOp>> linalgGenerics;
+    bool check_reduction;
+    
     // TODO Also collect all the linalg generics!
 
     // Check that the only operations within the region are either:
@@ -464,7 +471,6 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
     // Additionally, for each load/store, remember what conditions are
     // required for that load or store to execute.
     auto result = loop->walk<WalkOrder::PreOrder>([&](Operation *op) {
-      llvm::outs()<< op->getName() << "\n";
       if (op == loop)
         return WalkResult::advance();
       // TODO extend this, any non-memory operation is also legal here.
@@ -664,9 +670,10 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
         //TODO: Or is it num dims?
         //size_t firstNDims = lgMap.getResults().size();
         size_t firstNDims = lgMap.getNumDims();
+        check_reduction = false;
         auto newMemref = remap_in_affine_dim(
             legal, rewriter, lgMap, lgMemref, loop.getInductionVar(), loopSize,
-            firstNDims, ValueRange(lgOperands));
+            firstNDims, ValueRange(lgOperands), check_reduction);
 
         
         if (!legal)
@@ -703,9 +710,9 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
         bool legal = true;
 
         size_t firstNDims = lgMap.getNumDims();
+        check_reduction = true;
         auto newMemref = remap_in_affine_dim(
-            legal, rewriter, lgMap, lgMemref, loop.getInductionVar(), loopSize, firstNDims, ValueRange(lgOperands));
-
+            legal, rewriter, lgMap, lgMemref, loop.getInductionVar(), loopSize, firstNDims, ValueRange(lgOperands), check_reduction);
         if (!legal)
           return failure();
 
@@ -730,10 +737,11 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
       size_t firstNDims = 0;
       bool legal = true;
 
+      check_reduction = false;
       auto newMemref = remap_in_affine_dim(
           legal, rewriter, load.getAffineMap(), load.getMemref(),
           loop.getInductionVar(), loopSize, firstNDims,
-          load.getMapOperands());
+          load.getMapOperands(), check_reduction);
 
       if (!legal)
         return failure();
@@ -757,10 +765,11 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
 
       size_t firstNDims = 0;
       
+      check_reduction = true;
       auto newMemref = remap_in_affine_dim(
           legal, rewriter, store.getAffineMap(), store.getMemref(),
           loop.getInductionVar(), loopSize, firstNDims,
-          store.getMapOperands());
+          store.getMapOperands(), check_reduction);
 
       if (!legal)
         return failure();
@@ -784,16 +793,17 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
     // TODO if linalg generic exists, make this iterator type prepend to the
     // existing iterators
 
-    bool is_parallel = stores_map.size() == 0;
+    //TODO: Just store check is not sufficient, there has to be a check for 
+    //bool is_parallel = stores_map.size() == 0;
     // TODO determine if linalg generic, whether to create parallel or reduction by looking at memory patterns of maps
 
     if (linalgGenerics.size() == 1) {
       // determine whether now we write to ourselves
     }
 
-    iteratorTypes.push_back(is_parallel
-                                ? utils::IteratorType::parallel
-                                : utils::IteratorType::reduction);
+    iteratorTypes.push_back(check_reduction
+                                ? utils::IteratorType::reduction
+                                : utils::IteratorType::parallel);
 
     if (linalgGenerics.size() == 1) {
       for (auto attr : linalgGenerics[0].second.getIteratorTypesArray())
