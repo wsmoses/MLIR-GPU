@@ -612,7 +612,7 @@ int main(int argc, char **argv) {
 
   OpPrintingFlags flags;
   if (PrintDebugInfo)
-    flags.enableDebugInfo(/*pretty*/ false);
+    flags.enableDebugInfo(/*enable*/ true, /*pretty*/ false);
 
   if (ImmediateMLIR) {
     module->print(llvm::outs(), flags);
