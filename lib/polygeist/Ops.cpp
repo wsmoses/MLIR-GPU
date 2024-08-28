@@ -5944,7 +5944,26 @@ OpFoldResult mlir::polygeist::SubmapOp::fold(mlir::polygeist::SubmapOp::FoldAdap
   return nullptr;
 }
 
+
+class DimSubMap final : public OpRewritePattern<memref::DimOp> {
+public:
+  using OpRewritePattern<memref::DimOp>::OpRewritePattern;
+
+  LogicalResult matchAndRewrite(memref::DimOp op,
+                                PatternRewriter &rewriter) const override {
+    auto subMapOp = op.getSource().getDefiningOp<polygeist::SubmapOp>();
+    if (!subMapOp) return failure();
+
+    auto idx = op.getIndex().getDefiningOp<arith::ConstantIndexOp>();
+    if (!idx) return failure();
+
+    rewriter.replaceOp(op, subMapOp.getSizes()[idx.value()]);
+
+    return success();
+  }
+};
+
 void polygeist::SubmapOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                             MLIRContext *context) {
-  results.insert<LoadSubMap, StoreSubMap>(context);
+  results.insert<LoadSubMap, StoreSubMap, DimSubMap>(context);
 }
