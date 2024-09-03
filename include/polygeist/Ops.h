@@ -57,6 +57,8 @@ bool mayAlias(mlir::MemoryEffects::EffectInstance a,
 
 bool mayAlias(mlir::MemoryEffects::EffectInstance a, mlir::Value b);
 
+bool mayAlias(mlir::Value v, mlir::Value v2);
+
 extern llvm::cl::opt<bool> BarrierOpt;
 
 template <bool NotTopLevel = false>

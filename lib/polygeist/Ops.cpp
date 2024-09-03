@@ -784,7 +784,8 @@ bool isStackAlloca(Value v) {
          v.getDefiningOp<memref::AllocOp>() ||
          v.getDefiningOp<LLVM::AllocaOp>();
 }
-static bool mayAlias(Value v, Value v2) {
+
+bool mayAlias(Value v, Value v2) {
   v = getBase(v);
   v2 = getBase(v2);
   if (v == v2)
