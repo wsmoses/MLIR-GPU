@@ -131,9 +131,37 @@ Value remap_in_affine_dim(bool &legal, OpBuilder &builder, AffineMap oldmap,
       continue;
     }
     assert(i >= firstNDims);
-    if (v != index)
-      operands_without_indices.push_back(v);
-    else
+    if (v != index) {
+      // Check if the symbol value is read-only or defined in a scope where it is always visible.
+      if (auto ba = dyn_cast<BlockArgument>(v)) {
+        // check if it dominates the current scope
+        if (ba.getParentBlock()->getParent()->isAncestor(builder.getBlock()->getParent()))
+          operands_without_indices.push_back(v);
+        else {
+          assert(false);
+          legal = false;
+          return nullptr;
+        }
+      } else {
+        auto op = v.getDefiningOp();
+        // check if this dominates the current scope
+        if (op->getParentRegion()->isAncestor(builder.getBlock()->getParent())) {
+          operands_without_indices.push_back(v);
+        } else if (isReadOnly(op)) {
+          // if not, check if it is readnone
+          // Technically this isn't quite sufficient yet, and does require that the operands to this op are also able to be hoisted,
+          // but for now we will assume this
+          auto op2 = builder.clone(*op);
+          operands_without_indices.push_back(op2->getResult(cast<OpResult>(v).getResultNumber()));
+        } else {
+          // if so clone it in the right scope
+          // otherwise set illegal and don't continue
+          assert(false);
+          legal = false;
+          return nullptr;
+        }
+      }
+    } else
       dimidx = i;
   }
   if((dimidx == -1) && (check_reduction))
@@ -203,10 +231,41 @@ Value remap_in_affine_dim(bool &legal, OpBuilder &builder, AffineMap oldmap,
 
   legal = true;
   SmallVector<int64_t> sizes(idx_sizes.size(), mlir::ShapedType::kDynamic);
-  for (auto sz : idx_sizes)
-    operands_without_indices.push_back(sz);
-  // memref<?x?x?xf32>
+  for (auto sz : idx_sizes) {
+    // Check if the symbol value is read-only or defined in a scope where it is always visible.
+    if (auto ba = dyn_cast<BlockArgument>(sz)) {
+      // check if it dominates the current scope
+      if (ba.getParentBlock()->getParent()->isAncestor(builder.getBlock()->getParent()))
+        operands_without_indices.push_back(sz);
+      else {
+        llvm::errs() << " value is a non-dominating block arg: " << sz << "\n";
+        legal = false;
+          assert(false);
+        return nullptr;
+      }
+    } else {
+      auto op = sz.getDefiningOp();
+      // check if this dominates the current scope
+      if (op->getParentRegion()->isAncestor(builder.getBlock()->getParent())) {
+        operands_without_indices.push_back(sz);
+      } else if (isReadOnly(op)) {
+        // if not, check if it is readnone
+        // Technically this isn't quite sufficient yet, and does require that the operands to this op are also able to be hoisted,
+        // but for now we will assume this
+        auto op2 = builder.clone(*op);
+        operands_without_indices.push_back(op2->getResult(cast<OpResult>(sz).getResultNumber()));
+      } else {
+        llvm::errs() << " op is not readonly: " << *op << "\n";
+        // if so clone it in the right scope
+        // otherwise set illegal and don't continue
+        legal = false;
+          assert(false);
+        return nullptr;
+      }
+    }
+  }
   auto ty = MemRefType::get(sizes, cast<MemRefType>(memref_val.getType()).getElementType());
+
   return builder.create<polygeist::SubmapOp>(memref_val.getLoc(), ty, memref_val, operands_without_indices, map2);
 }
 
@@ -678,8 +737,6 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
         auto newMemref = remap_in_affine_dim(
             legal, rewriter, lgMap, lgMemref, loop.getInductionVar(), loopSize,
             firstNDims, ValueRange(lgOperands), input, check_reduction);
-
-        
         if (!legal)
           return failure();
 
@@ -775,8 +832,9 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
           loop.getInductionVar(), loopSize, firstNDims,
           store.getMapOperands(), store.getMemref(), check_reduction);
 
-      if (!legal)
+      if (!legal) {
         return failure();
+      }
 
       auto newAffineMap = rewriter.getMultiDimIdentityMap(firstNDims+1);
       affineMaps.push_back(newAffineMap);
@@ -786,12 +844,16 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
 
     // TODO presently  if linalg generic exists, assert there are no load/stores
     if ((linalgGenerics.size() > 0) &&
-          ((loads.size() != 0) || (stores.size() != 0)))
+          ((loads.size() != 0) || (stores.size() != 0))) {
+      assert(false);
       return failure();
+    }
 
     // TODO assert only zero or one linalg generic exists
-    if (!(linalgGenerics.size() == 1 || linalgGenerics.size() == 0))
+    if (!(linalgGenerics.size() == 1 || linalgGenerics.size() == 0)) {
+      //assert(false);
       return failure();
+    }
 
     SmallVector<utils::IteratorType> iteratorTypes;
     // TODO if linalg generic exists, make this iterator type prepend to the
@@ -879,6 +941,7 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
       for (auto op : term->getOperands()) {
         toreturn.push_back(map.lookup(op));
       }
+      //llvm::errs() << genOp->getParentOfType<func::FuncOp>() << "\n";
       rewriter.eraseOp(genOp);
     }
 
@@ -891,6 +954,7 @@ struct AffineForOpRaising : public OpRewritePattern<affine::AffineForOp> {
     rewriter.setInsertionPointToEnd(blk);
     rewriter.create<linalg::YieldOp>(loop.getLoc(), toreturn);
 
+    auto func = loop->getParentOfType<func::FuncOp>();
     rewriter.eraseOp(loop);
     // return success!
     return success();
