@@ -1,4 +1,4 @@
-// RUN: cgeist %s --function=* -S | FileCheck %s
+// RUN: cgeist %s  --no-inline --function=* -S | FileCheck %s
 
 struct AIntDivider {
     AIntDivider() : divisor(3) {}

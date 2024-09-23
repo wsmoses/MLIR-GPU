@@ -1,5 +1,5 @@
-// RUN: cgeist %s --function=main -S | FileCheck %s
-// RUN: cgeist %s --function=main -S --emit-llvm | FileCheck %s --check-prefix=LLCHECK
+// RUN: cgeist %s --no-inline --function=main -S | FileCheck %s
+// RUN: cgeist %s --no-inline --function=main -S --emit-llvm | FileCheck %s --check-prefix=LLCHECK
 
 int square(int x) {
   return x*x;

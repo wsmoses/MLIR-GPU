@@ -70,6 +70,7 @@ int main(int argc, char **argv) {
   mlir::registerConvertAffineToStandardPass();
   mlir::registerSCCPPass();
   mlir::registerInlinerPass();
+  mlir::registerSROAPass();
   mlir::registerCanonicalizerPass();
   mlir::registerSymbolDCEPass();
   mlir::registerLoopInvariantCodeMotionPass();

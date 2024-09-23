@@ -1,4 +1,4 @@
-// RUN: cgeist %s --struct-abi=0 --function='*' -S | FileCheck %s --check-prefix=STRUCT
+// RUN: cgeist %s --no-inline --struct-abi=0 --function='*' -S | FileCheck %s --check-prefix=STRUCT
 // COM: we dont support this yet: cgeist %s --function='*' -S | FileCheck %s
 
 void foo() {

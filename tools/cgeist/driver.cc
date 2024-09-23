@@ -146,6 +146,9 @@ static cl::opt<bool> PrintDebugInfo("print-debug-info", cl::init(false),
 static cl::opt<bool> EmitAssembly("S", cl::init(false),
                                   cl::desc("Emit Assembly"));
 
+static cl::opt<bool> NoInline("no-inline", cl::init(false),
+                              cl::desc("Prevent inlining"));
+
 static cl::opt<bool> Opt0("O0", cl::init(false), cl::desc("Opt level 0"));
 static cl::opt<bool> Opt1("O1", cl::init(false), cl::desc("Opt level 1"));
 static cl::opt<bool> Opt2("O2", cl::init(false), cl::desc("Opt level 2"));
@@ -712,7 +715,8 @@ int main(int argc, char **argv) {
           optPM.addPass(mlir::createLowerAffinePass());
         optPM.addPass(mlir::polygeist::createPolygeistCanonicalizePass(
             canonicalizerConfig, {}, {}));
-        pm.addPass(mlir::createInlinerPass());
+        if (!NoInline)
+          pm.addPass(mlir::createInlinerPass());
         mlir::OpPassManager &optPM2 = pm.nest<mlir::func::FuncOp>();
         optPM2.addPass(mlir::polygeist::createPolygeistCanonicalizePass(
             canonicalizerConfig, {}, {}));
@@ -757,7 +761,8 @@ int main(int argc, char **argv) {
       noptPM.addPass(polygeist::createPolygeistMem2RegPass());
       noptPM.addPass(mlir::polygeist::createPolygeistCanonicalizePass(
           canonicalizerConfig, {}, {}));
-      pm.addPass(mlir::createInlinerPass());
+      if (!NoInline)
+        pm.addPass(mlir::createInlinerPass());
       mlir::OpPassManager &noptPM2 = pm.nest<mlir::func::FuncOp>();
       noptPM2.addPass(mlir::polygeist::createPolygeistCanonicalizePass(
           canonicalizerConfig, {}, {}));

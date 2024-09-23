@@ -1,5 +1,5 @@
-// RUN: cgeist %s --function=* -S | FileCheck %s
-// RUN: cgeist %s --function=* --struct-abi=0 -memref-abi=0 -S | FileCheck %s --check-prefix CHECK-STR
+// RUN: cgeist %s --no-inline --function=* -S | FileCheck %s
+// RUN: cgeist %s --no-inline --function=* --struct-abi=0 -memref-abi=0 -S | FileCheck %s --check-prefix CHECK-STR
 
 
 struct A {
