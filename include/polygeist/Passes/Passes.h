@@ -32,6 +32,7 @@ std::unique_ptr<Pass> createOpenMPOptPass();
 std::unique_ptr<Pass> createCanonicalizeForPass();
 std::unique_ptr<Pass> createRaiseSCFToAffinePass();
 std::unique_ptr<Pass> createRaiseAffineToLinalgPass();
+std::unique_ptr<Pass> createRemoveSCFIterArgsPass();
 std::unique_ptr<Pass> createCPUifyPass(StringRef method = "");
 std::unique_ptr<Pass> createBarrierRemovalContinuation();
 std::unique_ptr<Pass> detectReductionPass();

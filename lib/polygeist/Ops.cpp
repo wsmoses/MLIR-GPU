@@ -5733,6 +5733,263 @@ struct MulDivMul : public OpRewritePattern<arith::MulIOp> {
   }
 };
 
+//struct SubMapOpCanonicalize : public OpRewritePattern<linalg::GenericOp> {
+//  using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
+//  LogicalResult matchAndRewrite(linalg::GenericOp gen,
+//                                PatternRewriter &rewriter) const override {
+//
+//    // Canonicalization 1 linalg.generic of map of submap. -> linalg.generic of map of submap
+//    //.     iff the submap's affine map != identity
+//    //.         replace inner affine map with composition
+//
+//
+//    // Canonicalizeation 3: submap which only sets bounds, of an input memref with the same bounds -> noop / cast
+//
+//
+//    // Canonicalization 1.5 (mix of 1/2)
+//    //.   linalg_map = identity              a[i,j,x,y] -> u[i+x][j+y]
+//    //.   linalg_map = [i,j,x,y]->(i+x,j+y)  a[i,j] -> u[i,j].  # but still keeping the upper loop limit
+//    //.     1
+//
+//
+//    // a[i] -> x[]
+//
+//    // a[1] -> x[]
+//    // a[2] -> x[]
+//
+//
+//    // a[i,j] = x[map(i,j)]. ; the subbmap op
+//    //a[i+x][j+y]  :  submap defines iteration var 0 goes from 0 ... A0.  and var 1 goes from 0 ... A1
+//    //b[x][y]
+//    //c[i+x][j+y]
+//    // here we have 4 iteration variables that linalg is doing i, j, x, y
+//    // for (i : ...)
+//    //.  for (j : ...)
+//    //.    for (x : ...)
+//    //.       for (y : ...) 
+//    //           c[i+x][j+y] += a[i+x][j+y] * b[x][y]
+//
+//    // a[i+x][j+y]
+//    // c[i+x][j+y]
+//    // for (i : ...)
+//    //.  for (j : ...)
+//    //.    for (x : ...)
+//    //.       for (y : ...) 
+//    //           c[i+x][j+y] += a[i+x][j+y]
+//
+//
+//    //x[map(i+x,j+y)] pass in the outermost one with correspondidng composed maps
+//    //b[x][y]
+//    //c[i+x][j+y]
+//
+//
+//    // requirement here, is that all linalg.generic loop bounds must be solvable after replacement
+//    // for example, this would not be permissible
+//    // a[i] -> x[]. ; a = submap memref<f32> -> memref<100xf32>
+//    // out[]      
+//
+//    // This cannot be replaced since now the linalg generic iteration variable i cannot be solved for
+//
+//  
+//  
+//    for (auto &&[op, opmap] : gen.getInputsAndMaps()) {
+//      if (auto submap = op.getDefiningOp<polygeist::SubmapOp>()) {
+//        bool solvable = false;
+//
+//        /// Cannoicalization 2:  index removal
+//        //.     x[i, j] -> v[i]. can we get rid of j?
+//        //.      Are input indices defined by other ops, and if so, can we simplify
+//        //.    1) Take all other input memrefs
+//        //     2) Determine all solvable indices from those input memrefs
+//        //.    For each index which is solvable from 2)
+//        //        if it can either be removed from the submap, or combined with another index in the submap,
+//        //        remove it from the submap
+//
+//        SmallVector<AffineExpr> exprs;
+//        for (auto [op2, map] : gen.getInputAndMaps()) {
+//          if (op != op2) {
+//            for (auto expr : map.getAffineExprs()) {
+//              exprs.push_back(expr);
+//            }
+//          }
+//        }
+//        for (auto [op2, map] : gen.getOutputAndMaps()) {
+//          if (op != op2) {
+//            for (auto expr : map.getAffineExprs()) {
+//              exprs.push_back(expr);
+//            }
+//          }
+//        }
+//        SmallSet<unsigned> solvable;
+//        linalg.determineSolvableIndices(solvable, exprs);
+//
+//        SmallSet<unsigned> notsolvable = allvariables - solvable;
+//        
+//        //a[map(i+x,j+y)] pass in the outermost one with correspondidng composed maps
+//        //b[x][y]
+//        //c[i+x][j+y]
+//        // Supose we're solving for a
+//        // Here exprs would contain all the affineexprs from b and c.  (aka inputs - {x})
+//        
+//        // {x, y, i+x, j+y}
+//        // Running a solver allows us to uniquely solve for all of, x, y, i, and j with these expressoin
+//        // In this case we can attempt to remove dependence on x, y, i, j
+//
+//        // If however we had 
+//        //a[map(i+x,j+y)] pass in the outermost one with correspondidng composed maps
+//        //b[x][y]
+//        //c[i+x][y]
+//        // we would solve with {x, y, i+x, y}
+//        // Running a solver we would be able to sole for {x, y, i} but not solve for j
+//        // In this case we can attempt to remove dependence on x, y, i, but not on j
+//
+//        // let's take easiest one where a is just broadcasting a constant to all input indices
+//        // a = submap (m,n) -> u[]
+//        // a[i+x, j+y] For all input indices which are uniquely solvable, here that is both
+//        //.     index 0 = i + x
+//        //. and index 1 = j + y
+//        // set the input map to compose with the submap's affine map
+//
+//
+//        /// Easy special case
+//        if (notsolvable.size() == 0) {
+//
+//          
+//          replace opmap with submap.compose(opmap) taking into account the the ConstantIntRanges
+//          // Easy case
+//        }
+//
+//        // We now have two maps with different meanings
+//        // Let |N| be the number of loop variables in the linalg.generic
+//        // Let |M| be length(submap.getType().getShape())
+//        // Let |Q| be length(submap.getInput().getType().getShape()), number of dimensions of input operand to the submap
+//        
+//        //   opmap from the linalg.generic which takes linalg.generic loop indices |N| -> inputs to the submap op. |M|
+//
+//        //  submap.map.     submap op.     which takes    input indices |M|.  ->  indices for the corresponing base memref |Q|
+//        
+//        // Example
+//
+//        //a[map(i+x,j+y)] pass in the outermost one with correspondidng composed maps
+//        //b[x][y]
+//        //c[i+x][j+y]
+//
+//        // a = submap (w,p) -> u[c + 2 * p]
+//
+//        // %c = myop.constant()
+//        // %a = submap a[w, p] -> u[%c + 2 * p]
+//        //. linalg.generic %a %b %c   a.map (x,y,i,j) -> a[x+i,y+j] {
+//        // }
+//
+//        // N = 4 = |{i,j,x,u}|
+//        // M = 2 = dim(a) . a is 2 dims
+//        // Q = 1.  dim(u)
+//
+//        SmallVector<AffineExpr> newLinalgExprs;
+//        SmallVector<AffineExpr> newSubmapExprs;
+//
+//        SmallVector<size_t> legalIndices;
+//        // We iterate for all |M| expressions of the opmap
+//        for (auto &&[i, linalgexpr] : llvm::enumerate(opmap.getExprs())) {
+//            // We must retain the indexing for variables which are functions
+//            // of the inputs which have a defining index.
+//            bool legal = true;
+//            for (auto var : notsolvable) {
+//              if (linalgexpr.isFunctionOf(var)) {
+//                legal = false;
+//                // we can pop this from the not solvable since now this index will define
+//                // the value of var for future iterations.
+//                // But doing so requires proving it is not a linear combination of previously
+//                // visited linalgexpr's, so we'll defer this for a later optimization
+//                // notsolvable.pop(var);
+//              }
+//            }
+//
+//            if (legal)
+//              legalIndices.push_back(i);
+//        }
+//
+//        // The non-special case version
+//        // j is not solvable
+//        //a[map(i+x,j+y)] pass in the outermost one with correspondidng composed maps
+//        //b[x][y]
+//        //c[i+x][y]
+//
+//        // because j is not solvable we cannot move any expressions depending on j (in this case p depends on j)
+//        //.  and the underlying sub expressions depending j, in this case via p are:
+//        //          a[1] = w + 4 and a[2] = w + 7
+//        // define a(w,p) -> u[c + 2 * p, w + 4, w + 7]
+//
+//        // with the general case optimization v0. [just moving expressions up]
+//
+//        //a2[map(i+x, j+y), i + x + 4, i + x + 7] pass in the outermost one with correspondidng composed maps
+//        //b[x][y]
+//        //c[i+x][y]
+//
+//        // define a2(w, p) -> u[c + 2 * p]
+//
+//        // with the general case optimization v1. [just eliminating unnecessary indices]
+//
+//        //a2[map(j+y), i + x + 4, i + x + 7] pass in the outermost one with correspondidng composed maps
+//        //b[x][y]
+//        //c[i+x][y]
+//
+//        // define a2(p) -> u[c + 2 * p]
+//
+//        // So this optimization generally moves expression from the submap into the linalg map
+//        // and it it also removes unnecessary indices into the submap
+//
+//
+//        // If the entire submap is legal to inline, the solution is simple, replace the linalg
+//        // map with itself composed with the submap, and replace the original submap with the identity op
+//        if (legalIndices.size() == opmap.getExprs().size()) {
+//          // Note, it isn't 100% as simple as below since we still need to retain any constant op's in the
+//          // new submap op below, since linalg.generic doesn't support constant value's for the indexing, as far
+//          // as I (wmoses) know? 
+//          newLinalgExprs = opmap.compose(submap.getMap()).getExprs();
+//          newSubmapExprs = Affine::getIdentityMap(submap.getOperand().getShape().size()).getExprs();
+//        } else {
+//          SmallVector<size_t> illegalIndices = allIndices - legalIndices;
+//
+//          // We can alternatively re-index maps which are solely functions of legal indices.
+//          for (auto &&[i, submapexpr] : llvm::enumerate(submap.getAffineMap().getExprs())) {
+//            if (submapexpr is a function of any illegal indicies) {
+//              // we need to keep this as a submap expr (though re-indexed on the new number of exprs)
+//              newSubmapExprs.push_back(submapexpr.reindex());
+//            } else {
+//              // this index can be completely solved for with other inputs, let's move the expression from
+//              // a submap expression into a linalg.generic map expression.
+//              newLinalgExprs.push_back(opmap.compose(submapexpr));
+//              newSubmapExprs.push_back(Affine::getIdentity());
+//            }
+//          }
+//        }
+//
+//        if (solvable) {
+//          // replace the input to the generic with the input to the submap, and the new map
+//          return success();
+//        }
+//      }
+//    }
+//
+//    
+//
+//    for (auto op : gen.getOutputs()) {
+//      if (auto submap = op.getDefiningOp<polygeist::SubmapOp>()) {
+//        bool solvable = false;
+//        if (solvable) {
+//          do the thing
+//          // replace the input to the generic with the input to the submap, and the new map
+//          return success();
+//        }
+//      }
+//    }
+//
+//
+//    return failure();
+//  }
+//};
+
 static llvm::cl::opt<bool>
     BufferElim("enable-buffer-elim", llvm::cl::init(true),
                llvm::cl::desc("Enable buffer elimination"));
@@ -5965,5 +6222,6 @@ public:
 
 void polygeist::SubmapOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                             MLIRContext *context) {
+  //results.insert<LoadSubMap, StoreSubMap, DimSubMap, SubMapOpCanonicalize>(context);
   results.insert<LoadSubMap, StoreSubMap, DimSubMap>(context);
 }

@@ -151,6 +151,15 @@ def SCFRaiseToAffine : Pass<"raise-scf-to-affine"> {
   ];
 }
 
+def RemoveSCFIterArgs : Pass<"remove-scf-iter-args"> {
+  let summary = "Remove scf iter args";
+  let constructor = "mlir::polygeist::createRemoveSCFIterArgsPass()";
+  let dependentDialects = [
+    "affine::AffineDialect",
+    "scf::SCFDialect",
+  ];
+}
+
 def AffineRaiseToLinalg : Pass<"raise-affine-to-linalg"> {
   let summary = "Raise affine to linalg";
   let constructor = "mlir::polygeist::createRaiseAffineToLinalgPass()";
