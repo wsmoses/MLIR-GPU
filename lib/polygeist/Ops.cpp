@@ -5735,7 +5735,7 @@ struct MulDivMul : public OpRewritePattern<arith::MulIOp> {
 
 struct SubMapOpCanonicalize : public OpRewritePattern<polygeist::SubmapOp> {
   using OpRewritePattern<SubmapOp>::OpRewritePattern;
-  LogicalResult matchAndRewrite(SubMapOp op,
+  LogicalResult matchAndRewrite(SubmapOp op,
                                 PatternRewriter &rewriter) const override {
     /// if submap %x is identity map and has the same size as the static size of %x
     ///. replace submap with memref.cast of memref<4x5xf32> to memref<?x?xf32>
@@ -5747,48 +5747,32 @@ struct SubMapOpCanonicalize : public OpRewritePattern<polygeist::SubmapOp> {
     /// %x = ... : memref<4x5xf32>
     //  %y = memref.cast %x : memref<4x5xf32> -> memref<?x?xf32>
     //
-    AffineMap submap_map = subMapOp.getMap();
-    auto submap_operands = subMapOp.getSymbols();
-    auto source_memref = subMapOp.getMemref();
-    bool isIdentity = submap_map.isIdentity()
-    bool isInputSameDim = llvm::all_of(llvm::zip(submap_operands, cast<MemRefType>(source_memref.getType()).getSizes()), [&](auto pair) {
-      return pair.first == pair.second;
+    auto source_memref = op.getMemref();
+    bool isIdentity = op.getMap().isIdentity();
+    bool isInputSameDim = llvm::all_of(llvm::zip_equal(op.getSizes(), cast<MemRefType>(source_memref.getType()).getShape()), [&](auto pair) {
+      if (std::get<1>(pair) == -1)
+        return false;
+      APInt matched;
+      if (matchPattern(std::get<0>(pair), m_ConstantInt(&matched))) {
+        return std::get<1>(pair) == matched;
+      }
+      return false;
     });
-    if (isIdentity && isInputSameD)
-      m {
-      ::zip(       e 
-                                                  ubma_operands, source_memref.getSizes()))    if () {
-e      rewriter.replaceOpWithNewOp<memref::CastOp>(op, op.getType(), op.getMemref());
-        return success();
-    }
-
-    /// if we have a submap o
-}        f
-     a sub  %y = polygeist.submap (%x, ...)map we can just replace with a si  ngle   s
-  u pol yge  ist.  submap (%u,   ...)  
-      //    %y = polygeist.submap (%x, ...)
-       // 
-  
-                  // becomes
-    //
-    //  %y = polygeist.submap (%u, ...)
-    //
-    if (aut   o sapOp = op.getMemR:SubMapOp>()
-               ) {
-      auto load_map = op.getAffineMap();
-      auto submap_map = subMapOp.getAffineMap();;
+    if (isIdentity && isInputSameDim) {
+      rewriter.replaceOpWithNewOp<memref::CastOp>(op, op.getType(), op.getMemref());
+      return success();
+    } 
+    if (auto sapOp = source_memref.getDefiningOp<polygeist::SubmapOp>()) {
+      auto load_map = op.getMap();
+      auto submap_map = sapOp.getMap();
       auto new_map = submap_map.compose(load_map);
-
       SmallVector<Value, 4> operands;
-      operands.append(subMapOp.getSymbols().begin(), subMapOp.getSymbols().end());
       operands.append(op.getSymbols().begin(), op.getSymbols().end());
-
+      operands.append(op.getSymbols().begin(), op.getSymbols().end());
       operands.append(op.getSizes().begin(), op.getSizes().end());
-
-      rewriter.replaceOpWithNewOp<polygeist::SubMapOp>(op, op.getType(), new_map, operands);
-      return succcess();
+      rewriter.replaceOpWithNewOp<polygeist::SubmapOp>(op, op.getType(), sapOp.getMemref(), operands, new_map);
+      return success();
     }
-
     return failure();
   }
 };
@@ -6283,6 +6267,6 @@ public:
 
 void polygeist::SubmapOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                             MLIRContext *context) {
-  //results.insert<LoadSubMap, StoreSubMap, DimSubMap, SubMapOpCanonicalize>(context);
-  results.insert<LoadSubMap, StoreSubMap, DimSubMap>(context);
+  results.insert<LoadSubMap, StoreSubMap, DimSubMap, SubMapOpCanonicalize>(context);
+  //results.insert<LoadSubMap, StoreSubMap, DimSubMap>(context);
 }
