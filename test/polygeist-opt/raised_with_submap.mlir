@@ -1022,3 +1022,76 @@ module @harris_score_gradient_2d_kernel {
     return %c0_i32 : i32
   }
 }
+
+module @harris_score_with_gradient_extra_kernel {
+  memref.global "private" @_ZL8coeffs_1 : memref<5x5xi32> = dense<1>
+  memref.global "private" @_ZL8coeffs_y : memref<3x3xi32> = dense<[[-3, -10, -3], [0, 0, 0], [3, 10, 3]]>
+  memref.global "private" @_ZL8coeffs_x : memref<3x3xi32> = dense<[[-3, -10, -3], [0, 0, 0], [3, 10, 3]]>
+  memref.global @score : memref<512x512xi32> = uninitialized
+  func.func @main() -> i32 attributes {llvm.linkage = #llvm.linkage<external>} {
+    %c516 = arith.constant 516 : index
+    %c3 = arith.constant 3 : index
+    %c512 = arith.constant 512 : index
+    %c5 = arith.constant 5 : index
+    %c4_i32 = arith.constant 4 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %alloca = memref.alloca() : memref<512x512xi32>
+    %alloca_0 = memref.alloca() : memref<512x512xi32>
+    %alloca_1 = memref.alloca() : memref<512x512xi32>
+    %alloca_2 = memref.alloca() : memref<516x516xi32>
+    %alloca_3 = memref.alloca() : memref<516x516xi32>
+    %alloca_4 = memref.alloca() : memref<518x518xi32>
+    %0 = memref.get_global @_ZL8coeffs_x : memref<3x3xi32>
+    %1 = memref.get_global @_ZL8coeffs_y : memref<3x3xi32>
+    %2 = "polygeist.submap"(%alloca_4, %c3, %c3, %c516, %c516) <{map = #map19}> : (memref<518x518xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %3 = "polygeist.submap"(%0, %c3, %c3, %c516, %c516) <{map = #map20}> : (memref<3x3xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %4 = "polygeist.submap"(%1, %c3, %c3, %c516, %c516) <{map = #map20}> : (memref<3x3xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %5 = "polygeist.submap"(%alloca_2, %c3, %c3, %c516, %c516) <{map = #map21}> : (memref<516x516xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %6 = "polygeist.submap"(%alloca_3, %c3, %c3, %c516, %c516) <{map = #map21}> : (memref<516x516xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    linalg.generic {indexing_maps = [#map22, #map22, #map22, #map22, #map22], iterator_types = ["parallel", "parallel", "reduction", "reduction"]} ins(%2, %3, %4 : memref<?x?x?x?xi32>, memref<?x?x?x?xi32>, memref<?x?x?x?xi32>) outs(%5, %6 : memref<?x?x?x?xi32>, memref<?x?x?x?xi32>) {
+    ^bb0(%in: i32, %in_5: i32, %in_6: i32, %out: i32, %out_7: i32):
+      %19 = arith.muli %in, %in_5 : i32
+      %20 = arith.addi %out_7, %19 : i32
+      %21 = arith.muli %in, %in_6 : i32
+      %22 = arith.addi %out, %21 : i32
+      linalg.yield %22, %20 : i32, i32
+    }
+    %7 = memref.get_global @_ZL8coeffs_1 : memref<5x5xi32>
+    %8 = "polygeist.submap"(%alloca_3, %c5, %c5, %c512, %c512) <{map = #map19}> : (memref<516x516xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %9 = "polygeist.submap"(%alloca_2, %c5, %c5, %c512, %c512) <{map = #map19}> : (memref<516x516xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %10 = "polygeist.submap"(%7, %c5, %c5, %c512, %c512) <{map = #map20}> : (memref<5x5xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %11 = "polygeist.submap"(%alloca, %c5, %c5, %c512, %c512) <{map = #map21}> : (memref<512x512xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %12 = "polygeist.submap"(%alloca_0, %c5, %c5, %c512, %c512) <{map = #map21}> : (memref<512x512xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    %13 = "polygeist.submap"(%alloca_1, %c5, %c5, %c512, %c512) <{map = #map21}> : (memref<512x512xi32>, index, index, index, index) -> memref<?x?x?x?xi32>
+    linalg.generic {indexing_maps = [#map22, #map22, #map22, #map22, #map22, #map22], iterator_types = ["parallel", "parallel", "reduction", "reduction"]} ins(%8, %9, %10 : memref<?x?x?x?xi32>, memref<?x?x?x?xi32>, memref<?x?x?x?xi32>) outs(%11, %12, %13 : memref<?x?x?x?xi32>, memref<?x?x?x?xi32>, memref<?x?x?x?xi32>) {
+    ^bb0(%in: i32, %in_5: i32, %in_6: i32, %out: i32, %out_7: i32, %out_8: i32):
+      %19 = arith.muli %in, %in : i32
+      %20 = arith.muli %19, %in_6 : i32
+      %21 = arith.addi %out_8, %20 : i32
+      %22 = arith.muli %in_5, %in_5 : i32
+      %23 = arith.muli %22, %in_6 : i32
+      %24 = arith.addi %out_7, %23 : i32
+      %25 = arith.muli %in, %in_5 : i32
+      %26 = arith.muli %25, %in_6 : i32
+      %27 = arith.addi %out, %26 : i32
+      linalg.yield %27, %24, %21 : i32, i32, i32
+    }
+    %14 = memref.get_global @score : memref<512x512xi32>
+    %15 = "polygeist.submap"(%alloca_1, %c512, %c512) <{map = #map24}> : (memref<512x512xi32>, index, index) -> memref<?x?xi32>
+    %16 = "polygeist.submap"(%alloca_0, %c512, %c512) <{map = #map24}> : (memref<512x512xi32>, index, index) -> memref<?x?xi32>
+    %17 = "polygeist.submap"(%alloca, %c512, %c512) <{map = #map24}> : (memref<512x512xi32>, index, index) -> memref<?x?xi32>
+    %18 = "polygeist.submap"(%14, %c512, %c512) <{map = #map24}> : (memref<512x512xi32>, index, index) -> memref<?x?xi32>
+    linalg.generic {indexing_maps = [#map6, #map6, #map6, #map6], iterator_types = ["parallel", "parallel"]} ins(%15, %16, %17 : memref<?x?xi32>, memref<?x?xi32>, memref<?x?xi32>) outs(%18 : memref<?x?xi32>) {
+    ^bb0(%in: i32, %in_5: i32, %in_6: i32, %out: i32):
+      %19 = arith.muli %in, %in_5 : i32
+      %20 = arith.muli %in_6, %in_6 : i32
+      %21 = arith.subi %19, %20 : i32
+      %22 = arith.addi %in, %in_5 : i32
+      %23 = arith.muli %22, %c4_i32 : i32
+      %24 = arith.muli %23, %22 : i32
+      %25 = arith.subi %21, %24 : i32
+      linalg.yield %25 : i32
+    }
+    return %c0_i32 : i32
+  }
+}

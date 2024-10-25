@@ -1089,3 +1089,159 @@ module @harris_score_local {
     return %c0_i32 : i32
   }
 }
+
+module @harris_score_2d_kernel {
+  memref.global "private" @_ZL8coeffs_y : memref<3x3xi32> = dense<[[-3, -10, -3], [0, 0, 0], [3, 10, 3]]>
+  memref.global "private" @_ZL8coeffs_x : memref<3x3xi32> = dense<[[-3, -10, -3], [0, 0, 0], [3, 10, 3]]>
+  memref.global @score : memref<512x512xi32> = uninitialized
+  func.func @main() -> i32 attributes {llvm.linkage = #llvm.linkage<external>} {
+    %c4_i32 = arith.constant 4 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %alloca = memref.alloca() : memref<512x512xi32>
+    %alloca_0 = memref.alloca() : memref<512x512xi32>
+    %alloca_1 = memref.alloca() : memref<512x512xi32>
+    %alloca_2 = memref.alloca() : memref<516x516xi32>
+    %alloca_3 = memref.alloca() : memref<516x516xi32>
+    %alloca_4 = memref.alloca() : memref<518x518xi32>
+    %0 = memref.get_global @_ZL8coeffs_x : memref<3x3xi32>
+    %1 = memref.get_global @_ZL8coeffs_y : memref<3x3xi32>
+    affine.for %arg0 = 0 to 516 {
+      affine.for %arg1 = 0 to 516 {
+        %3:2 = affine.for %arg2 = 0 to 3 iter_args(%arg3 = %c0_i32, %arg4 = %c0_i32) -> (i32, i32) {
+          %4:2 = affine.for %arg5 = 0 to 3 iter_args(%arg6 = %arg3, %arg7 = %arg4) -> (i32, i32) {
+            %5 = affine.load %alloca_4[%arg0 + %arg2, %arg1 + %arg5] : memref<518x518xi32>
+            %6 = affine.load %0[%arg2, %arg5] : memref<3x3xi32>
+            %7 = arith.muli %5, %6 : i32
+            %8 = arith.addi %arg7, %7 : i32
+            %9 = affine.load %1[%arg2, %arg5] : memref<3x3xi32>
+            %10 = arith.muli %5, %9 : i32
+            %11 = arith.addi %arg6, %10 : i32
+            affine.yield %11, %8 : i32, i32
+          }
+          affine.yield %4#0, %4#1 : i32, i32
+        }
+        affine.store %3#1, %alloca_3[%arg0, %arg1] : memref<516x516xi32>
+        affine.store %3#0, %alloca_2[%arg0, %arg1] : memref<516x516xi32>
+      }
+    }
+    affine.for %arg0 = 0 to 512 {
+      affine.for %arg1 = 0 to 512 {
+        %3:3 = affine.for %arg2 = 0 to 5 iter_args(%arg3 = %c0_i32, %arg4 = %c0_i32, %arg5 = %c0_i32) -> (i32, i32, i32) {
+          %4:3 = affine.for %arg6 = 0 to 5 iter_args(%arg7 = %arg3, %arg8 = %arg4, %arg9 = %arg5) -> (i32, i32, i32) {
+            %5 = affine.load %alloca_3[%arg0 + %arg2, %arg1 + %arg6] : memref<516x516xi32>
+            %6 = affine.load %alloca_2[%arg0 + %arg2, %arg1 + %arg6] : memref<516x516xi32>
+            %7 = arith.muli %5, %5 : i32
+            %8 = arith.addi %arg9, %7 : i32
+            %9 = arith.muli %6, %6 : i32
+            %10 = arith.addi %arg8, %9 : i32
+            %11 = arith.muli %5, %6 : i32
+            %12 = arith.addi %arg7, %11 : i32
+            affine.yield %12, %10, %8 : i32, i32, i32
+          }
+          affine.yield %4#0, %4#1, %4#2 : i32, i32, i32
+        }
+        affine.store %3#2, %alloca_1[%arg0, %arg1] : memref<512x512xi32>
+        affine.store %3#1, %alloca_0[%arg0, %arg1] : memref<512x512xi32>
+        affine.store %3#0, %alloca[%arg0, %arg1] : memref<512x512xi32>
+      }
+    }
+    %2 = memref.get_global @score : memref<512x512xi32>
+    affine.for %arg0 = 0 to 512 {
+      affine.for %arg1 = 0 to 512 {
+        %3 = affine.load %alloca_1[%arg0, %arg1] : memref<512x512xi32>
+        %4 = affine.load %alloca_0[%arg0, %arg1] : memref<512x512xi32>
+        %5 = affine.load %alloca[%arg0, %arg1] : memref<512x512xi32>
+        %6 = arith.muli %3, %4 : i32
+        %7 = arith.muli %5, %5 : i32
+        %8 = arith.subi %6, %7 : i32
+        %9 = arith.addi %3, %4 : i32
+        %10 = arith.muli %9, %c4_i32 : i32
+        %11 = arith.muli %10, %9 : i32
+        %12 = arith.subi %8, %11 : i32
+        affine.store %12, %2[%arg0, %arg1] : memref<512x512xi32>
+      }
+    }
+    return %c0_i32 : i32
+  }
+}
+
+module @harris_score_with_gradient_extra_kernel {
+  memref.global "private" @_ZL8coeffs_1 : memref<5x5xi32> = dense<1>
+  memref.global "private" @_ZL8coeffs_y : memref<3x3xi32> = dense<[[-3, -10, -3], [0, 0, 0], [3, 10, 3]]>
+  memref.global "private" @_ZL8coeffs_x : memref<3x3xi32> = dense<[[-3, -10, -3], [0, 0, 0], [3, 10, 3]]>
+  memref.global @score : memref<512x512xi32> = uninitialized
+  func.func @main() -> i32 attributes {llvm.linkage = #llvm.linkage<external>} {
+    %c4_i32 = arith.constant 4 : i32
+    %c0_i32 = arith.constant 0 : i32
+    %alloca = memref.alloca() : memref<512x512xi32>
+    %alloca_0 = memref.alloca() : memref<512x512xi32>
+    %alloca_1 = memref.alloca() : memref<512x512xi32>
+    %alloca_2 = memref.alloca() : memref<516x516xi32>
+    %alloca_3 = memref.alloca() : memref<516x516xi32>
+    %alloca_4 = memref.alloca() : memref<518x518xi32>
+    %0 = memref.get_global @_ZL8coeffs_x : memref<3x3xi32>
+    %1 = memref.get_global @_ZL8coeffs_y : memref<3x3xi32>
+    affine.for %arg0 = 0 to 516 {
+      affine.for %arg1 = 0 to 516 {
+        %4:2 = affine.for %arg2 = 0 to 3 iter_args(%arg3 = %c0_i32, %arg4 = %c0_i32) -> (i32, i32) {
+          %5:2 = affine.for %arg5 = 0 to 3 iter_args(%arg6 = %arg3, %arg7 = %arg4) -> (i32, i32) {
+            %6 = affine.load %alloca_4[%arg0 + %arg2, %arg1 + %arg5] : memref<518x518xi32>
+            %7 = affine.load %0[%arg2, %arg5] : memref<3x3xi32>
+            %8 = arith.muli %6, %7 : i32
+            %9 = arith.addi %arg7, %8 : i32
+            %10 = affine.load %1[%arg2, %arg5] : memref<3x3xi32>
+            %11 = arith.muli %6, %10 : i32
+            %12 = arith.addi %arg6, %11 : i32
+            affine.yield %12, %9 : i32, i32
+          }
+          affine.yield %5#0, %5#1 : i32, i32
+        }
+        affine.store %4#1, %alloca_3[%arg0, %arg1] : memref<516x516xi32>
+        affine.store %4#0, %alloca_2[%arg0, %arg1] : memref<516x516xi32>
+      }
+    }
+    %2 = memref.get_global @_ZL8coeffs_1 : memref<5x5xi32>
+    affine.for %arg0 = 0 to 512 {
+      affine.for %arg1 = 0 to 512 {
+        %4:3 = affine.for %arg2 = 0 to 5 iter_args(%arg3 = %c0_i32, %arg4 = %c0_i32, %arg5 = %c0_i32) -> (i32, i32, i32) {
+          %5:3 = affine.for %arg6 = 0 to 5 iter_args(%arg7 = %arg3, %arg8 = %arg4, %arg9 = %arg5) -> (i32, i32, i32) {
+            %6 = affine.load %alloca_3[%arg0 + %arg2, %arg1 + %arg6] : memref<516x516xi32>
+            %7 = affine.load %alloca_2[%arg0 + %arg2, %arg1 + %arg6] : memref<516x516xi32>
+            %8 = arith.muli %6, %6 : i32
+            %9 = affine.load %2[%arg2, %arg6] : memref<5x5xi32>
+            %10 = arith.muli %8, %9 : i32
+            %11 = arith.addi %arg9, %10 : i32
+            %12 = arith.muli %7, %7 : i32
+            %13 = arith.muli %12, %9 : i32
+            %14 = arith.addi %arg8, %13 : i32
+            %15 = arith.muli %6, %7 : i32
+            %16 = arith.muli %15, %9 : i32
+            %17 = arith.addi %arg7, %16 : i32
+            affine.yield %17, %14, %11 : i32, i32, i32
+          }
+          affine.yield %5#0, %5#1, %5#2 : i32, i32, i32
+        }
+        affine.store %4#2, %alloca_1[%arg0, %arg1] : memref<512x512xi32>
+        affine.store %4#1, %alloca_0[%arg0, %arg1] : memref<512x512xi32>
+        affine.store %4#0, %alloca[%arg0, %arg1] : memref<512x512xi32>
+      }
+    }
+    %3 = memref.get_global @score : memref<512x512xi32>
+    affine.for %arg0 = 0 to 512 {
+      affine.for %arg1 = 0 to 512 {
+        %4 = affine.load %alloca_1[%arg0, %arg1] : memref<512x512xi32>
+        %5 = affine.load %alloca_0[%arg0, %arg1] : memref<512x512xi32>
+        %6 = affine.load %alloca[%arg0, %arg1] : memref<512x512xi32>
+        %7 = arith.muli %4, %5 : i32
+        %8 = arith.muli %6, %6 : i32
+        %9 = arith.subi %7, %8 : i32
+        %10 = arith.addi %4, %5 : i32
+        %11 = arith.muli %10, %c4_i32 : i32
+        %12 = arith.muli %11, %10 : i32
+        %13 = arith.subi %9, %12 : i32
+        affine.store %13, %3[%arg0, %arg1] : memref<512x512xi32>
+      }
+    }
+    return %c0_i32 : i32
+  }
+}
