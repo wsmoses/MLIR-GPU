@@ -22,6 +22,8 @@
 #include "mlir/Dialect/Affine/IR/AffineOps.h"
 #include "mlir/Dialect/Arith/Utils/Utils.h"
 #include "mlir/Dialect/Func/IR/FuncOps.h"
+#include "mlir/Dialect/Linalg/IR/Linalg.h"
+#include "mlir/IR/AffineMap.h"
 #include "mlir/Dialect/MemRef/IR/MemRef.h"
 #include "mlir/Dialect/OpenMP/OpenMPDialect.h"
 #include "mlir/Dialect/SCF/IR/SCF.h"
@@ -39,7 +41,6 @@
 using namespace mlir;
 using namespace polygeist;
 using namespace mlir::arith;
-
 llvm::cl::opt<bool> BarrierOpt("barrier-opt", llvm::cl::init(true),
                                llvm::cl::desc("Optimize barriers"));
 
@@ -5778,6 +5779,99 @@ struct SubMapOpCanonicalize : public OpRewritePattern<polygeist::SubmapOp> {
 };
 
 
+ struct LinalgOfSubmap : public OpRewritePattern<linalg::GenericOp> {
+  using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
+  LogicalResult matchAndRewrite(linalg::GenericOp genericOp,
+                                PatternRewriter &rewriter) const override {
+      //Check body content
+      auto module = genericOp->getParentOfType<ModuleOp>();
+      Region &genericBody = genericOp.getRegion();
+      Block &entryBlock = genericBody.front();
+      ValueRange blockArgs = entryBlock.getArguments();
+      auto inputs = genericOp.getInputs();
+      auto outputs = genericOp.getOutputs();
+      SmallVector<memref::AllocaOp> listOfAllocas;
+      SmallVector<AffineMap> listOfNewMaps;
+      SmallVector<Value> listOfNewInputs, listOfNewOutputs;
+      //auto mapAttrsArr = genericOp.getIndexingMaps();
+      //for(auto mapAttr: mapAttrsArr) {
+      // AffineMap map = mapAttr.cast<AffineMapAttr>().getValue();
+      // if(map == convMap[0] && !mapped[0]) {
+      // }
+      //}
+      for(auto inp: inputs) {
+        if(auto blkArg = dyn_cast<BlockArgument>(inp)) {
+          listOfNewInputs.push_back(inp);
+        }
+        else if(auto subMap = dyn_cast<polygeist::SubmapOp>(inp.getDefiningOp())) {
+          auto source_memref = subMap.getMemref();
+          //if (auto blockArg = dyn_cast_or_null<mlir::BlockArgument>(op)) {
+          //if(auto source_alloca = dyn_cast<memref::AllocaOp>(source_memref.getDefiningOp()))
+          //{
+          auto map = subMap.getMap();
+          listOfNewMaps.push_back(map);
+          listOfNewInputs.push_back(source_memref);
+          //}
+          //else {
+          //  assert(false && "Only expect allocaOp as source for submap canonicalization right now");
+          //  return failure();
+          //}
+        }
+        else {
+          listOfNewInputs.push_back(inp);
+        }
+      }
+      
+      for(auto out: outputs) {
+        if(auto blkArg = dyn_cast<BlockArgument>(out)) {
+          listOfNewOutputs.push_back(out);
+        }
+        else if(auto subMap = dyn_cast<polygeist::SubmapOp>(out.getDefiningOp())) {
+          auto source_memref = subMap.getMemref();
+          auto map = subMap.getMap();
+          listOfNewMaps.push_back(map);
+          listOfNewOutputs.push_back(source_memref);
+        }
+        else {
+          listOfNewOutputs.push_back(out);
+        }
+      }
+      ArrayRef<AffineMap> maps(listOfNewMaps);
+      //No submap ops detected
+      if(maps.size() == 0)
+        return failure();
+      //If inverse permutation exists, then we can canonicalize the linalg of submap to linalg
+      //TODO: Fails for:
+      // 1. Maps with symbols
+      // 2. Maps with non 
+      if(inversePermutation(concatAffineMaps(maps))) {
+        StringAttr empty = StringAttr::get(genericOp.getContext());
+        auto newGenericOp = rewriter.create<linalg::GenericOp>(genericOp.getLoc(), TypeRange(), listOfNewInputs, listOfNewOutputs, listOfNewMaps, genericOp.getIteratorTypesArray(),
+          empty, empty);
+        rewriter.inlineRegionBefore(genericOp.getRegion(), newGenericOp.getRegion(), newGenericOp.getRegion().end());
+        
+        //auto &block = newGenericOp.getRegion().front();
+        //block.addArguments(newGenericOp.getOperandTypes(), SmallVector<Location, 4>(newGenericOp.getNumOperands(), genericOp.getLoc()));
+        
+        rewriter.replaceOp(genericOp, newGenericOp.getResults());
+        return success();
+      }
+      //for(iterate over inputs)
+      //{
+      //  gather maps
+      //  gather submaps
+      //  Gather affine maps from submaps
+      //  Check over 2 iterations if all the indexes can be solved.
+      //  Use the same logic as linalg.generic to do this.
+      //  if success in getting vars
+      //    replace affine map from submap to linalg.generic
+      //    replace input memref as direct input to linalg.generic
+      //}
+      //assert(false && "inversePermutation doesn't exists for the given linalg generic");
+      return failure();
+    }
+ };
+
 // struct LinalgOfSubmap : public OpRewritePattern<linalg::GenericOp> {
 //  using OpRewritePattern<linalg::GenericOp>::OpRewritePattern;
 //  LogicalResult matchAndRewrite(linalg::GenericOp gen,
@@ -6267,6 +6361,7 @@ public:
 
 void polygeist::SubmapOp::getCanonicalizationPatterns(RewritePatternSet &results,
                                             MLIRContext *context) {
-  results.insert<LoadSubMap, StoreSubMap, DimSubMap, SubMapOpCanonicalize>(context);
+  //results.insert<LoadSubMap, StoreSubMap, DimSubMap, SubMapOpCanonicalize>(context);
+  results.insert<LoadSubMap, StoreSubMap, DimSubMap, LinalgOfSubmap>(context);
   //results.insert<LoadSubMap, StoreSubMap, DimSubMap>(context);
 }
