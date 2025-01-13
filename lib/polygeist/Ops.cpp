@@ -5843,7 +5843,7 @@ struct SubMapOpCanonicalize : public OpRewritePattern<polygeist::SubmapOp> {
       //If inverse permutation exists, then we can canonicalize the linalg of submap to linalg
       //TODO: Fails for:
       // 1. Maps with symbols
-      // 2. Maps with non 
+      // 2. Maps which are not resolvable 1 to 1 with memref for all dims
       if(inversePermutation(concatAffineMaps(maps))) {
         StringAttr empty = StringAttr::get(genericOp.getContext());
         auto newGenericOp = rewriter.create<linalg::GenericOp>(genericOp.getLoc(), TypeRange(), listOfNewInputs, listOfNewOutputs, listOfNewMaps, genericOp.getIteratorTypesArray(),

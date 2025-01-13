@@ -32,6 +32,7 @@ std::unique_ptr<Pass> createOpenMPOptPass();
 std::unique_ptr<Pass> createCanonicalizeForPass();
 std::unique_ptr<Pass> createRaiseSCFToAffinePass();
 std::unique_ptr<Pass> createRaiseAffineToLinalgPass();
+std::unique_ptr<Pass> createLinalgDebufferizePass();
 std::unique_ptr<Pass> createRemoveIterArgsPass();
 std::unique_ptr<Pass> createCPUifyPass(StringRef method = "");
 std::unique_ptr<Pass> createBarrierRemovalContinuation();
@@ -127,6 +128,14 @@ class AffineDialect;
 
 namespace linalg {
 class LinalgDialect;
+}
+
+namespace bufferization {
+class BufferizationDialect;
+}
+
+namespace Tensor {
+class TensorDialect;
 }
 
 namespace LLVM {

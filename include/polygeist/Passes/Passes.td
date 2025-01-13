@@ -160,6 +160,17 @@ def RemoveIterArgs : Pass<"remove-iter-args"> {
   ];
 }
 
+def LinalgDebufferize : Pass<"linalg-debufferize"> {
+  let summary = "Raise affine to linalg";
+  let constructor = "mlir::polygeist::createLinalgDebufferizePass()";
+  let dependentDialects = [
+    "affine::AffineDialect",
+    "linalg::LinalgDialect",
+    "bufferization::BufferizationDialect",
+    "polygeist::PolygeistDialect",
+  ];
+}
+
 def AffineRaiseToLinalg : Pass<"raise-affine-to-linalg"> {
   let summary = "Raise affine to linalg";
   let constructor = "mlir::polygeist::createRaiseAffineToLinalgPass()";
