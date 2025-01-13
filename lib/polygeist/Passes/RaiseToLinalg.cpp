@@ -475,7 +475,7 @@ LogicalResult getLinalgArgMap(Operation *loop, Value &input, AffineMap &lgMap,
     //        //fully2ComposeAffineMapAndOperands(builder, &map, &map_operands,
     //        DI);
     //// Instead of using loop step we are using 1 (Assumption as the stride
-    ///size)
+    /// size)
     //        auto newexpr = map.shiftDims(dimOperands.size())
     //                           .shiftSymbols(symOperands.size());
 
