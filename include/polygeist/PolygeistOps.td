@@ -259,4 +259,21 @@ def TypeAlignOp : Polygeist_Op<"typeAlign", [Pure]> {
   let hasFolder = 1;
   let hasCanonicalizer = 1;
 }
+
+def SubmapOp : Polygeist_Op<"submap", [Pure, ViewLikeOpInterface]> {
+  let arguments = (ins Arg<AnyMemRef, "the reference to load from">:$memref,
+      Variadic<Index>:$indices_and_sizes,
+      AffineMapAttr:$map
+      );
+  let results = (outs AnyMemRef : $result);
+  let hasFolder = 1;
+  let hasCanonicalizer = 1;
+
+  let extraClassDeclaration = [{
+    ::mlir::ValueRange getSymbols() { return getOperands().slice(1, getMap().getNumSymbols()); }
+    ::mlir::ValueRange getSizes() { return getOperands().slice(getMap().getNumSymbols()+1, getType().getShape().size()); }
+    ::mlir::Value getViewSource() { return getMemref(); }
+  }];
+}
+
 #endif // POLYGEIST_OPS

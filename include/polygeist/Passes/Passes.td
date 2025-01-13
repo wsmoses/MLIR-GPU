@@ -151,12 +151,33 @@ def SCFRaiseToAffine : Pass<"raise-scf-to-affine"> {
   ];
 }
 
+def RemoveIterArgs : Pass<"remove-iter-args"> {
+  let summary = "Remove scf iter args";
+  let constructor = "mlir::polygeist::createRemoveIterArgsPass()";
+  let dependentDialects = [
+    "affine::AffineDialect",
+    "scf::SCFDialect",
+  ];
+}
+
+def LinalgDebufferize : Pass<"linalg-debufferize"> {
+  let summary = "Raise affine to linalg";
+  let constructor = "mlir::polygeist::createLinalgDebufferizePass()";
+  let dependentDialects = [
+    "affine::AffineDialect",
+    "linalg::LinalgDialect",
+    "bufferization::BufferizationDialect",
+    "polygeist::PolygeistDialect",
+  ];
+}
+
 def AffineRaiseToLinalg : Pass<"raise-affine-to-linalg"> {
   let summary = "Raise affine to linalg";
   let constructor = "mlir::polygeist::createRaiseAffineToLinalgPass()";
   let dependentDialects = [
     "affine::AffineDialect",
     "linalg::LinalgDialect",
+    "polygeist::PolygeistDialect",
   ];
 }
 

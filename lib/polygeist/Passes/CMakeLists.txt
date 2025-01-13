@@ -11,7 +11,9 @@ add_mlir_dialect_library(MLIRPolygeistTransforms
   OpenMPOpt.cpp
   BarrierRemovalContinuation.cpp
   RaiseToAffine.cpp
+  RemoveIterArgs.cpp
   RaiseToLinalg.cpp
+  LinalgDebufferize.cpp
   ParallelLower.cpp
   TrivialUse.cpp
   ConvertPolygeistToLLVM.cpp
