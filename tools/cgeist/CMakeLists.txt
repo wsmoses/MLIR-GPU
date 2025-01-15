@@ -108,16 +108,12 @@ list(APPEND CGEIST_LIBS
   MLIRLLVMIRToLLVMTranslation
   MLIRFromLLVMIRTranslationRegistration
   MLIRAffineAnalysis
-  MLIRAnalysis
   MLIRCastInterfaces
   MLIRDialect
   MLIROptLib
   MLIRParser
   MLIRPass
-  MLIRTransforms
   MLIRTransformUtils
-  MLIRSupport
-  MLIRIR
   MLIRCAPIRegisterEverything
   MLIRBuiltinToLLVMIRTranslation
 
